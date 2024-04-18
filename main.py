@@ -1,5 +1,6 @@
 import random
 import math
+from utility import *
 
 echo = False
 
@@ -43,9 +44,9 @@ class NqueenState:
     # Constructor
     def __init__(self, parent=None):
         # Tracks the next empty column for the next queen to be placed in
-        if parent is not None: # If this is not the starting state
+        if parent is not None and type(parent) is tuple: # If this is not the starting state
             # Pick up at same column as previous state
-            self.currentCol = parent.currentCol
+            self.currentCol = parent[0].currentCol, parent[0].currentCol
         else:
             # Else, start at column 0
             self.currentCol = 0
@@ -87,21 +88,19 @@ class NqueenState:
     # Places a queen 'Q' in the row specified in the parameters, in the next empty column on the board.
     def place_queen(self, row, col=None):
         # Place the queen
+
         if col is None:
-            self.board[row][self.currentCol] = 'Q'
-            # Set the state's action to the coordinates of the new queen
-            self.action = (row, self.currentCol)
-            # Set next empty column to next column
-            self.currentCol += 1
+            col = len(self.queens)
 
-        else:
-            self.board[row][col] = 'Q'
-
+        self.board[row][col] = 'Q'
         self.update_queens()
-
 
     # Returns a formatted string visualizing the boards of each of the state's successor states
     def print_successors(self):
+        return self.print_states(self.successors)
+
+    #
+    def print_states(self, states):
         output_string = ""
 
         # Array to contain each row of the eventual output string as its own separate string
@@ -109,12 +108,12 @@ class NqueenState:
 
         # Add a new blank row to the output array for each row in a state's board
         # plus one extra to show the actions/transitions
-        for row in self.board:
+        for row in states[0].board:
             output_array.append("")
         output_array.append("")
 
         # Iterate through successors
-        for state in self.successors:
+        for state in states:
             # For each row in the output_array/board
             for i in range(len(output_array) - 1):
                 # Append each element of the current row of the board to the current row of the output_array
@@ -122,7 +121,7 @@ class NqueenState:
                     output_array[i] += f'{symbol} '
                 output_array[i] += f'\t'
 
-            output_array[-1] += f'{state.action}\t\t'
+            output_array[-1] += f'Cost: {state.cost}\t\t'
 
         # Collapse the output array of strings into a single string
         for row in output_array:
@@ -140,7 +139,7 @@ def nqueen_successors(state):
     successors = []
 
     # Check whether all the queens haven't already been placed
-    if state.currentCol < len(state.board[0]):
+    if len(state.queens) < len(state.board):
 
         # For each row in the board, generate a new successor
         for i in range(len(state.board)):
@@ -159,12 +158,11 @@ def nqueen_successors(state):
 def nqueen_compute_weight(state):
     score = 0
     echo_string = ""
-    # queen_row, queen_col = state.action
 
     echo = False
 
     if echo:
-        print(f'State:\n{state}Queen at {state.action}\nAc:\t\t\tUp:\t\t\tDn:')
+        print(f'State:\n{state}\nAc:\t\t\tUp:\t\t\tDn:')
 
     for queen_coords in state.queens:
         temp_queens = state.queens.copy()
@@ -238,6 +236,69 @@ def nqueen_compute_weight(state):
 
     return score
 
+
+# Takes two state objects as parameters and returns a tuple of two states resulting from a two-point genetic
+# crossover in which the two points are randomly chosen.
+def genetic_crossover(state_0, state_1):
+    board_0 = rotate_board(state_0.board.copy(), True)
+    board_1 = rotate_board(state_1.board.copy(), True)
+
+    random.seed()
+
+    # cut_point = random.randint(1, len(board_0) - 1)
+
+    cut_point_0 = random.randint(0, min(int(len(board_0)/2), len(state_0.queens), len(state_1.queens)))
+    # cut_point = random.randint(0, min(int(len(board_0) / 2), len(state_0.queens), len(state_1.queens)))
+
+    # Catch ValueError for cases where the board is small enough
+    try:
+        cut_point_1 = random.randint(cut_point_0, min(len(board_0), len(state_0.queens), len(state_1.queens)))
+    except :
+        cut_point_1 = cut_point_0
+
+    # board_0_head, board_0_body, board_0_tail = (
+    #     board_0[:cut_point_0],
+    #     board_0[cut_point_0:cut_point_1],
+    #     board_0[cut_point_1:])
+    #
+    # board_1_head, board_1_body, board_1_tail = (
+    #     board_1[:cut_point_0],
+    #     board_1[cut_point_0:cut_point_1],
+    #     board_1[cut_point_1:])
+
+    new_board_0 = board_1[:cut_point_0] + board_0[cut_point_0:cut_point_1] + board_1[cut_point_1:]
+    new_board_1 = board_0[:cut_point_0] + board_1[cut_point_0:cut_point_1] + board_0[cut_point_1:]
+
+    # new_board_0 = board_1_head + board_0_body + board_1_tail
+    # new_board_1 = board_0_head + board_1_body + board_0_tail
+
+    # new_board_0 = board_1[:cut_point] + board_0[cut_point:]
+    # new_board_1 = board_0[:cut_point] + board_1[cut_point:]
+
+    new_state_0 = NqueenState((state_0, state_1))
+    new_state_1 = NqueenState((state_0, state_1))
+
+    # new_state_0 = NqueenState(None)
+    # new_state_1 = NqueenState(None)
+
+    nqueen_compute_weight(new_state_0)
+    nqueen_compute_weight(new_state_1)
+
+    new_state_0.set_board(rotate_board(new_board_0))
+    new_state_1.set_board(rotate_board(new_board_1))
+
+    nqueen_compute_weight(new_state_0)
+    nqueen_compute_weight(new_state_1)
+
+    for i, column in enumerate(rotate_board(state_0.board)):
+        if column.count('Q') > 1:
+            x = 0
+        if rotate_board(state_1.board)[i].count('Q') > 1:
+            x = 0
+
+    return new_state_0, new_state_1
+
+
 def nqueen_start(n):
 
     random.seed()
@@ -248,8 +309,41 @@ def nqueen_start(n):
 
     return state
 
-def check_genetic():
-    return -1
+
+def mutate_population(population, pop_best):
+
+    for mutation_index in range(len(population) - 1):
+        random.seed()
+
+        new_mutated_state = NqueenState()
+        new_mutated_state.set_board(population[mutation_index].board)
+
+        # if new_mutated_state.cost - (len(new_mutated_state.board) - len(new_mutated_state.queens)) < pop_best:
+
+        for i in range(len(new_mutated_state.board) - 1):
+
+            # Randomly choose the index of a queen to move to another random space in the same column
+            try:
+                mutation_result_index = random.randint(0, len(new_mutated_state.queens) - 1)
+            except ValueError:
+                mutation_result_index = len(new_mutated_state.queens) - 1
+
+            # Get the tuple of coordinates corresponding to that queen
+            mutated_queen_0 = new_mutated_state.queens[mutation_result_index]
+            test = mutated_queen_0[0], mutated_queen_0[1]
+            # Clear the space occupied by the queen
+            new_mutated_state.board[mutated_queen_0[0]][mutated_queen_0[1]] = '-'
+            # Choose a random row to move it to
+            rand_row = random.randint(0, len(new_mutated_state.board) - 1)
+            # Place the queen in the new row
+            new_mutated_state.place_queen(rand_row, mutated_queen_0[1])
+
+            if f'{new_mutated_state}' not in [f'{chromosome}' for chromosome in population]:
+                population[mutation_index].set_board(new_mutated_state.board)
+                break
+            else:
+                None
+
 
 def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
@@ -270,7 +364,7 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
         while True:
             # TODO True? Double-check
             # queens_left serves as simulated annealing scheduling variable
-            queens_left = (len(state.board) - state.currentCol)
+            queens_left = (len(state.board) - len(state.queens))
 
             if queens_left == 0 and state.cost >= 0:
                 goal = state
@@ -329,34 +423,90 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
     if searchType == "genetic" and checkGoal is not None:
 
-        start.successors = successorFunc(start)
-        population = start.successors.copy()
-        population_cap = int(len(start.board) / 2 if len(start.board) > 2 else len(start.board))
-        # population_cap = 8
+        population = [start]
+        population_cap = int(len(start.board) / 2) + 1 if len(start.board) > 2 else len(start.board)
 
-        while True:
+        mutation_increment = 1
+        mutation_timer = 0
+        best_rec_weight = -1 * len(start.board)
 
-            for chromosome in population.copy():
-                population.extend(chromosome.successors)
+        # Loop until goal state found
+        while goal is None:
 
-            if len(population) >= population_cap:
-                print()
+            temp_population = population.copy()
 
-            population.sort(key=lambda chromosome: chromosome.cost)
+            # Loop through entire population
+            for chromosome in temp_population:
 
-            if echo:
-                print(f'Initial Population:\n')
-                for chromosome in population:
-                    print(f'{chromosome}')
+                # Create a copy of the population
+                other_chromosomes = temp_population.copy()
 
-            if len(population) > population_cap:
-                del population[population_cap + 1:]
+                # Remove all occurrences of the current state (chromosome) from the population copy
+                for other_chromosome in temp_population:
+                    if check_boards_equal(chromosome, other_chromosome):
+                        other_chromosomes.remove(other_chromosome)
 
-            if echo:
-                print(f'Culled Population:\n')
-                for chromosome in population:
-                    print(f'{chromosome}')
+                while len(other_chromosomes) > 0:
 
+                    random.seed()
+                    random_partner_index = random.randint(0, len(other_chromosomes) - 1)
+                    random_partner = other_chromosomes.pop(random_partner_index)
+                    child_0, child_1 = genetic_crossover(chromosome, random_partner)
+                    outer_iterations += 1
+
+                    if f'{child_0}' not in [f'{chromosome}' for chromosome in population]:
+                        population.append(child_0)
+
+                    if f'{child_1}' not in [f'{chromosome}' for chromosome in population]:
+                        population.append(child_1)
+
+            population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
+                            reverse=True)
+
+            other_chromosomes = population.copy()
+
+            for chromosome in other_chromosomes:
+                queens_left = len(chromosome.board) - len(chromosome.queens)
+
+                # Check for goal state, set return value to current state and break loop if true
+                if chromosome.cost == 0 and queens_left == 0:
+                    goal = chromosome
+                    break
+
+                # If the state hasn't been expanded, expand its successors and mark it as expanded
+                if not expanded_states.search_expanded(chromosome):
+                    chromosome.successors = successorFunc(chromosome)
+                    expanded_states.add_to_expanded(chromosome)
+
+                # Add state's successors to population
+                for successor in chromosome.successors:
+                    if f'{successor}' not in [f'{chromosome}' for chromosome in population]:
+                        population.append(successor)
+                    else:
+                        x = 0
+
+                population.sort(
+                    key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
+                    reverse=True)
+
+                if len(population) > population_cap:
+                    population = population[:population_cap]
+
+                best_pop_weight = population[0].cost - (len(population[0].board) - len(population[0].queens))
+
+                if mutation_timer >= mutation_increment:
+                    # Reset the mutation timer
+                    mutation_timer = 0
+
+                    if best_pop_weight > best_rec_weight + 1:
+                        best_rec_weight = best_pop_weight
+
+                    else:
+                        mutate_population(population, best_pop_weight)
+
+            mutation_timer += 1
+
+    # TODO Implement PSO
     if searchType == "PSO":
         None
 
@@ -367,76 +517,50 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
     return goal, outer_iterations
 
-def genetic_crossover(state_0, state_1):
-    board_0 = rotate_board(state_0.board.copy())
-    board_1 = rotate_board(state_1.board.copy())
 
-    random.seed()
-    cut_point_0 = random.randint(1, int(len(board_0)/2))
+echo = False
 
-    # Catch ValueError for cases where the board is small enough
-    try:
-        cut_point_1 = random.randint(int(len(board_0)/2) + 1, len(board_0) - 1)
-    except :
-        cut_point_1 = int(len(board_0) / 2) + 1
+results = []
+tests = 100
+n = 6
+test_types = ["hill-climbing", "genetic", "PSO"]
+test_type = 1
+for i in range(tests):
+    start_state = nqueen_start(n)
+    goal_state = nqueen_heuristic_search(start_state, nqueen_successors, test_types[test_type], check_genetic)
+    results.append(float(goal_state[1]))
+    print(f'Test {i + 1}/{tests} (n = {n}) Goal:\n{goal_state[0]}cost: {goal_state[0].cost}\n{float(goal_state[1])} iterations/generations\n')
+print(f'Test Type: {test_types[test_type]}\nn = {n}\n# of tests: {tests}\nIteration Counts: {results}\nAverage: {math.fsum(results)/float(len(results))}')
 
-
-    new_board_0 = board_0[:cut_point_0] + board_1[cut_point_0:cut_point_1] + board_0[cut_point_1:]
-    new_board_1 = board_1[:cut_point_0] + board_0[cut_point_0:cut_point_1] + board_1[cut_point_1:]
-
-    # new_state_0 = NqueenState((state_0, state_1))
-    # new_state_1 = NqueenState((state_0, state_1))
-
-    new_state_0 = NqueenState(None)
-    new_state_1 = NqueenState(None)
-
-    nqueen_compute_weight(new_state_0)
-    nqueen_compute_weight(new_state_1)
-
-    new_state_0.set_board(rotate_board(new_board_0, True))
-    new_state_1.set_board(rotate_board(new_board_1, True))
-
-    return new_state_0, new_state_1
-
-
+# Results:
 #
-def rotate_board(board, clockwise=False):
+# Test Type: genetic
+# n = 6
+# # of tests: 5
+# Iteration Counts: [376.0, 68.0, 1157.0, 672.0, 860.0]
+# Average: 626.6
 
-    rotation_count = 1 if clockwise else 3
-
-    rotated = board.copy()
-
-    for i in range(rotation_count):
-        # Transpose the matrix
-        board_length = len(board)
-        transposed = [[rotated[i][j] for i in range(board_length)] for j in range(board_length)]
-    
-        # Reverse each row
-        rotated = [row[::-1] for row in transposed]
-
-    return rotated
-
-def check_start(state):
-    return [False in [space == '-' for space in row] for row in state.board].count(True) == 0
+# Test Type: hill-climbing
+# n = 6
+# # of tests: 5
+# Iteration Counts: [28441.0, 14018.0, 19099.0, 19093.0, 19103.0]
+# Average: 19950.8
+#
+# Test Type: genetic (AFTER)
+# n = 6
+# # of tests: 5
+# Iteration Counts: [71727.0, 252837.0, 41031.0, 276273.0, 178133.0]
+# Average: 164000.2
 
 
-echo = True
 
-# results = []
-# for i in range(1):
-#     start_state = nqueen_start(8)
-#     goal_state = nqueen_heuristic_search(start_state, nqueen_successors, "hill-climbing")
-#     results.append(float(goal_state[1]))
-#     print(f'Goal (n = {4}):\n{goal_state[0]}cost: {goal_state[0].cost}\n{float(goal_state[1])} iterations\n')
-# print(f'Iteration Counts: {results}\nAverage: {math.fsum(results)/float(len(results))}')
 
-# results = []
-# for i in range(1):
-#     start_state = nqueen_start(4)
-#     goal_state = nqueen_heuristic_search(start_state, nqueen_successors, "genetic", check_genetic)
-#     results.append(float(goal_state[1]))
-#     print(f'Goal (n = {4}):\n{goal_state[0]}cost: {goal_state[0].cost}\n{float(goal_state[1])} generations\n')
-# print(f'Iteration Counts: {results}\nAverage: {math.fsum(results)/float(len(results))}')
+
+
+
+
+
+
 
 # states = []
 # transitions = [-3, 0, -2, -5]
@@ -454,39 +578,42 @@ echo = True
 #     i += 1
 
 
-state_0 = nqueen_start(4)
-state_0.successors = nqueen_successors(state_0)
-
-state_1a = state_0.successors[0]
-state_1a.successors = nqueen_successors(state_1a)
-
-state_2a = state_1a.successors[0]
-state_2a.successors = nqueen_successors(state_2a)
-
-state_3a = state_2a.successors[0]
-state_3a.successors = nqueen_successors(state_3a)
-
-state_4a = state_3a.successors[0]
-state_4a.successors = nqueen_successors(state_4a)
-
+# state_0 = nqueen_start(5)
+# state_0.successors = nqueen_successors(state_0)
+#
+# state_1a = state_0.successors[0]
+# state_1a.successors = nqueen_successors(state_1a)
+#
+# state_2a = state_1a.successors[0]
+# state_2a.successors = nqueen_successors(state_2a)
+#
+# state_3a = state_2a.successors[0]
+# state_3a.successors = nqueen_successors(state_3a)
+#
+# state_4a = state_3a.successors[0]
+# state_4a.successors = nqueen_successors(state_4a)
+#
 # state_5a = state_4a.successors[0]
 # state_5a.successors = nqueen_successors(state_5a)
+#
+#
+# state_1b = state_0.successors[4]
+# state_1b.successors = nqueen_successors(state_1b)
+#
+# state_2b = state_1b.successors[4]
+# state_2b.successors = nqueen_successors(state_2b)
+#
+# state_3b = state_2b.successors[4]
+# state_3b.successors = nqueen_successors(state_3b)
+#
+# state_4b = state_3b.successors[4]
+# state_4b.successors = nqueen_successors(state_4b)
+#
+# state_5b = state_4b.successors[4]
+# state_5b.successors = nqueen_successors(state_5b)
 
-
-state_1b = state_0.successors[3]
-state_1b.successors = nqueen_successors(state_1b)
-
-state_2b = state_1b.successors[3]
-state_2b.successors = nqueen_successors(state_2b)
-
-state_3b = state_2b.successors[3]
-state_3b.successors = nqueen_successors(state_3b)
-
-state_4b = state_3b.successors[3]
-state_4b.successors = nqueen_successors(state_4b)
-
-print(f'Parents:\n{state_4a}\n{state_4b}')
-
-child_0, child_1 = genetic_crossover(state_4a, state_4b)
-
-print(f'Children:\n{child_0}\n{child_1}')
+# print(f'Parents:\n{state_4a}\n{state_4b}')
+#
+# child_0, child_1 = genetic_crossover(state_5a, state_5b)
+#
+# print(f'Children:\n{child_0}\n{child_1}')

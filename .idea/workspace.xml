@@ -4,7 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="48665d0b-3b22-41ed-ad2e-e8557a3d11b0" name="Changes" comment="Actual initial commit. Hill-climbing is done, just needs polish">
+    <list default="true" id="48665d0b-3b22-41ed-ad2e-e8557a3d11b0" name="Changes" comment="Polished up hill-climbing some and additional comments. Getting closer with genetic algorithm">
+      <change afterPath="$PROJECT_DIR$/utility.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
@@ -23,6 +24,20 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;ElliotBidwell&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">
+    <option name="selectedUrlAndAccountId">
+      <UrlAndAccount>
+        <option name="accountId" value="9cb190b1-a70d-4184-955b-17e9a3ecd55b" />
+        <option name="url" value="https://github.com/ElliotBidwell/bidwell_nQueens.git" />
+      </UrlAndAccount>
+    </option>
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
 }</component>
@@ -35,7 +50,8 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python._pydev_execfile.executor": "Debug",
-    "Python.main.executor": "Run",
+    "Python.main.executor": "Debug",
+    "Python.utility.executor": "Debug",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "main"
@@ -65,7 +81,15 @@
       <option name="project" value="LOCAL" />
       <updated>1713263852236</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Polished up hill-climbing some and additional comments. Getting closer with genetic algorithm">
+      <option name="closed" value="true" />
+      <created>1713311160855</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1713311160855</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -81,6 +105,23 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Actual initial commit. Hill-climbing is done, just needs polish" />
-    <option name="LAST_COMMIT_MESSAGE" value="Actual initial commit. Hill-climbing is done, just needs polish" />
+    <MESSAGE value="Polished up hill-climbing some and additional comments. Getting closer with genetic algorithm" />
+    <option name="LAST_COMMIT_MESSAGE" value="Polished up hill-climbing some and additional comments. Getting closer with genetic algorithm" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
+    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="random_partner" language="Python" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>
