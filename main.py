@@ -169,8 +169,6 @@ def nqueen_compute_weight(state):
         temp_queens.sort(key=lambda queen: queen_coords[1])
         queen_row, queen_col = queen_coords
 
-
-
         for other_queen in temp_queens[temp_queens.index(queen_coords):]:
             other_row, other_col = other_queen
 
@@ -187,51 +185,6 @@ def nqueen_compute_weight(state):
                 elif other_row == queen_row:
                     score -= 1
 
-    # for i in range(1, queen_col + 1):
-    #
-    #     if state.board[queen_row][queen_col - i] == 'Q':
-    #         score -= 1
-    #
-    #     if queen_row - i >= 0 and state.board[queen_row - i][queen_col - i] == 'Q':
-    #         score -= 1
-    #
-    #     if queen_row + i < len(state.board) and state.board[queen_row + i][queen_col - i] == 'Q':
-    #         score -= 1
-    #
-    #     if echo:
-    #         echo_string += f'{queen_row, queen_col - i}: {state.board[queen_row][queen_col - i]}\t'
-    #
-    #     if queen_row - i >= 0:
-    #         echo_string += f'{queen_row - i, queen_col - i}: {state.board[queen_row - i][queen_col - i]}\t'
-    #     else:
-    #         echo_string += f'         \t'
-    #
-    #     if queen_row + i < len(state.board):
-    #         echo_string += f'{queen_row + i, queen_col - i}: {state.board[queen_row + i][queen_col - i]}\t'
-    #     else:
-    #         echo_string += f'         \t'
-    #
-    #     if echo:
-    #         print(echo_string)
-    #         echo_string = ""
-
-    # if queen_col + 1 < len(state.board):
-    #
-    #     # Check upper right diagonal
-    #     if queen_row - 1 >= 0 and state.board[queen_row - 1][queen_col + 1] == '-':
-    #         score -= 1
-    #         # state.board[queen_row - 1][queen_col + 1] = 'U'
-    #
-    #     # Check upper right diagonal
-    #     if queen_row + 1 < len(state.board) and state.board[queen_row + 1][queen_col + 1] == '-':
-    #         score -= 1
-    #         # state.board[queen_row + 1][queen_col + 1] = 'D'
-    #
-    #     # Check directly right
-    #     if state.board[queen_row][queen_col + 1] == '-':
-    #         score -= 1
-    #         # state.board[queen_row][queen_col + 1] = 'F'
-
     state.cost = score
 
     return score
@@ -240,46 +193,27 @@ def nqueen_compute_weight(state):
 # Takes two state objects as parameters and returns a tuple of two states resulting from a two-point genetic
 # crossover in which the two points are randomly chosen.
 def genetic_crossover(state_0, state_1):
+    # Rotate
     board_0 = rotate_board(state_0.board.copy(), True)
     board_1 = rotate_board(state_1.board.copy(), True)
 
     random.seed()
 
-    # cut_point = random.randint(1, len(board_0) - 1)
-
     cut_point_0 = random.randint(0, min(int(len(board_0)/2), len(state_0.queens), len(state_1.queens)))
-    # cut_point = random.randint(0, min(int(len(board_0) / 2), len(state_0.queens), len(state_1.queens)))
 
     # Catch ValueError for cases where the board is small enough
-    try:
-        cut_point_1 = random.randint(cut_point_0, min(len(board_0), len(state_0.queens), len(state_1.queens)))
-    except :
-        cut_point_1 = cut_point_0
+    cut_point_1 = random.randint(cut_point_0, min(len(board_0), len(state_0.queens), len(state_1.queens)))
+    # try:
+    #     cut_point_1 = random.randint(cut_point_0, min(len(board_0), len(state_0.queens), len(state_1.queens)))
+    # except:
+    #     cut_point_1 = cut_point_0
 
-    # board_0_head, board_0_body, board_0_tail = (
-    #     board_0[:cut_point_0],
-    #     board_0[cut_point_0:cut_point_1],
-    #     board_0[cut_point_1:])
-    #
-    # board_1_head, board_1_body, board_1_tail = (
-    #     board_1[:cut_point_0],
-    #     board_1[cut_point_0:cut_point_1],
-    #     board_1[cut_point_1:])
 
     new_board_0 = board_1[:cut_point_0] + board_0[cut_point_0:cut_point_1] + board_1[cut_point_1:]
     new_board_1 = board_0[:cut_point_0] + board_1[cut_point_0:cut_point_1] + board_0[cut_point_1:]
 
-    # new_board_0 = board_1_head + board_0_body + board_1_tail
-    # new_board_1 = board_0_head + board_1_body + board_0_tail
-
-    # new_board_0 = board_1[:cut_point] + board_0[cut_point:]
-    # new_board_1 = board_0[:cut_point] + board_1[cut_point:]
-
     new_state_0 = NqueenState((state_0, state_1))
     new_state_1 = NqueenState((state_0, state_1))
-
-    # new_state_0 = NqueenState(None)
-    # new_state_1 = NqueenState(None)
 
     nqueen_compute_weight(new_state_0)
     nqueen_compute_weight(new_state_1)
@@ -366,11 +300,12 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
             # queens_left serves as simulated annealing scheduling variable
             queens_left = (len(state.board) - len(state.queens))
 
+            # Break loop and set return value if goal found
             if queens_left == 0 and state.cost >= 0:
                 goal = state
-                min_reached = True
                 break
 
+            # Expand the state and mark it as expanded if it hasn't been already
             if not expanded_states.search_expanded(state):
                 state.successors = successorFunc(state)
                 expanded_states.add_to_expanded(state)
@@ -382,18 +317,20 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
                     message += '----'
                 # print(f'(-{state.cost * -1}) {message}')
 
+            # If the state has successors
             if len(state.successors) > 0:
 
+                # Determine the successor with the best weight
                 costs = [successor.cost - queens_left for successor in state.successors]
                 new_state = state.successors[costs.index(max(costs))]
 
                 if not expanded_states.search_expanded(new_state):
                     state = new_state
-                elif len(costs) > 1:
+                elif len(state.successors) > 1:
+
                     temp_successors = state.successors.copy()
                     temp_successors.pop(costs.index(max(costs)))
 
-                    # temp_probs = [(float(state.cost - successor.cost)/float(queens_left * 2)) * float(not expanded_states.search_expanded(successor)) for successor in temp_successors]
                     temp_probs = [(float(successor.cost - state.cost) / (float(queens_left * 2)) + 0.1) * float(
                         not expanded_states.search_expanded(successor)) for successor in temp_successors]
 
@@ -426,19 +363,20 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
         population = [start]
         population_cap = int(len(start.board) / 2) + 1 if len(start.board) > 2 else len(start.board)
 
-        mutation_increment = 1
+        mutation_increment = 3
         mutation_timer = 0
         best_rec_weight = -1 * len(start.board)
 
         # Loop until goal state found
         while goal is None:
 
+            # Create a copy of the population so that population can be modified without affecting loops
             temp_population = population.copy()
 
             # Loop through entire population
             for chromosome in temp_population:
 
-                # Create a copy of the population
+                # Create copy of the temp population so it can be modified
                 other_chromosomes = temp_population.copy()
 
                 # Remove all occurrences of the current state (chromosome) from the population copy
@@ -446,26 +384,32 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
                     if check_boards_equal(chromosome, other_chromosome):
                         other_chromosomes.remove(other_chromosome)
 
+                # Loop until all chromosomes other than the current one are removed from the other list
                 while len(other_chromosomes) > 0:
-
                     random.seed()
+
+                    # Choose an index at random from the other population list
                     random_partner_index = random.randint(0, len(other_chromosomes) - 1)
+                    # Pop and save the chosen chromosome
                     random_partner = other_chromosomes.pop(random_partner_index)
                     child_0, child_1 = genetic_crossover(chromosome, random_partner)
                     outer_iterations += 1
 
+                    # Add each child to the list if they are not already in the population
                     if f'{child_0}' not in [f'{chromosome}' for chromosome in population]:
                         population.append(child_0)
 
                     if f'{child_1}' not in [f'{chromosome}' for chromosome in population]:
                         population.append(child_1)
 
+            # Sort population in ascending order of cost
             population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
                             reverse=True)
 
-            other_chromosomes = population.copy()
+            # Make a copy of the population so it can be modified
+            temp_population = population.copy()
 
-            for chromosome in other_chromosomes:
+            for chromosome in temp_population:
                 queens_left = len(chromosome.board) - len(chromosome.queens)
 
                 # Check for goal state, set return value to current state and break loop if true
@@ -482,28 +426,34 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
                 for successor in chromosome.successors:
                     if f'{successor}' not in [f'{chromosome}' for chromosome in population]:
                         population.append(successor)
-                    else:
-                        x = 0
 
+                # Sort population in ascending order of cost
                 population.sort(
                     key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
                     reverse=True)
 
+                # Cull lower weight chromosomes to reduce pop size to its max allowed
                 if len(population) > population_cap:
                     population = population[:population_cap]
 
+                # Calculate the best weight out of each chromosome in the population
                 best_pop_weight = population[0].cost - (len(population[0].board) - len(population[0].queens))
 
+                # If mutation timer increment reached
                 if mutation_timer >= mutation_increment:
                     # Reset the mutation timer
                     mutation_timer = 0
 
+                    # If the best weight in the current population is at least 1 greater than the best recorded at the last increment
                     if best_pop_weight > best_rec_weight + 1:
+                        # Set best recorded weight to new best
                         best_rec_weight = best_pop_weight
 
+                    # Otherwise mutate
                     else:
                         mutate_population(population, best_pop_weight)
 
+            # Increment mutation timer
             mutation_timer += 1
 
     # TODO Implement PSO
@@ -521,10 +471,10 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 echo = False
 
 results = []
-tests = 100
+tests = 10
 n = 6
 test_types = ["hill-climbing", "genetic", "PSO"]
-test_type = 1
+test_type = 0
 for i in range(tests):
     start_state = nqueen_start(n)
     goal_state = nqueen_heuristic_search(start_state, nqueen_successors, test_types[test_type], check_genetic)
