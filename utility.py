@@ -22,6 +22,21 @@ def rotate_board(board, clockwise=False):
 
     return rotated
 
+def check_for_weird(state):
+    return state.board == [['-', '-', 'Q', '-', '-', '-'],
+                           ['-', '-', '-', 'Q', '-', 'Q'],
+                           ['-', 'Q', '-', '-', '-', '-'],
+                           ['-', '-', '-', '-', 'Q', '-'],
+                           ['Q', '-', '-', '-', '-', '-'],
+                           ['-', '-', '-', '-', '-', '-']
+                           ]
+
+# -	-	Q	-	-	-
+# -	-	-	-	-	-
+# -	Q	-	-	-	-
+# -	-	-	-	Q	Q
+# Q	-	-	-	-	-
+# -	-	-	Q	-	-
 
 def check_start(state):
     return [False in [space == '-' for space in row] for row in state.board].count(True) == 0

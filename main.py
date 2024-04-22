@@ -1,8 +1,11 @@
 import random
 import math
+import statistics as stats
 from utility import *
 
+# Globals for toggling echo mode and verbose echo (echo_v) mode
 echo = False
+echo_v = False
 
 
 # Class contains a dictionary used to store every state that is expanded during a search. Used to manage this data in
@@ -42,7 +45,7 @@ expanded_states = ExpandedStates()
 class NqueenState:
 
     # Constructor
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, board=[]):
         # Tracks the next empty column for the next queen to be placed in
         if parent is not None and type(parent) is tuple: # If this is not the starting state
             # Pick up at same column as previous state
@@ -52,7 +55,7 @@ class NqueenState:
             self.currentCol = 0
 
         self.cost = 0 # The heuristic cost of the state, based on number of pairs of queens threatening each other
-        self.board = [] # 2D list representing the chess board
+        self.board = board # 2D list representing the chess board
         self.queens = [] # List of tuples representing the coordinates of each queen
         self.action = None # 2-tuple representing the coordinates of the queen placed to transition to this state
         self.successors = [] # List to contain references to each of this state's successors
@@ -177,12 +180,12 @@ def nqueen_compute_weight(state):
                       f'R(Y): {queen_row - other_row if queen_row > other_row else other_row - queen_row}\n'
                       f'C(X): {queen_col - other_col}')
 
-            if queen_coords != other_queen:
+            if queen_col != other_col:
                 if queen_row - other_row == queen_col - other_col:
                     score -= 1
-                elif other_row - queen_row == queen_col - other_col:
+                if other_row - queen_row == queen_col - other_col:
                     score -= 1
-                elif other_row == queen_row:
+                if other_row == queen_row:
                     score -= 1
 
     state.cost = score
@@ -201,6 +204,7 @@ def genetic_crossover(state_0, state_1):
 
     cut_point_0 = random.randint(0, min(int(len(board_0)/2), len(state_0.queens), len(state_1.queens)))
 
+    # TODO Make sure exception handler isn't necessary before deleting
     # Catch ValueError for cases where the board is small enough
     cut_point_1 = random.randint(cut_point_0, min(len(board_0), len(state_0.queens), len(state_1.queens)))
     # try:
@@ -214,9 +218,6 @@ def genetic_crossover(state_0, state_1):
 
     new_state_0 = NqueenState((state_0, state_1))
     new_state_1 = NqueenState((state_0, state_1))
-
-    nqueen_compute_weight(new_state_0)
-    nqueen_compute_weight(new_state_1)
 
     new_state_0.set_board(rotate_board(new_board_0))
     new_state_1.set_board(rotate_board(new_board_1))
@@ -274,6 +275,7 @@ def mutate_population(population, pop_best):
 
             if f'{new_mutated_state}' not in [f'{chromosome}' for chromosome in population]:
                 population[mutation_index].set_board(new_mutated_state.board)
+                nqueen_compute_weight(population[mutation_index])
                 break
             else:
                 None
@@ -281,8 +283,7 @@ def mutate_population(population, pop_best):
 
 def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
-    outer_iterations = 0
-    goal = None
+    inner_iterations, outer_iterations, crossovers, mutations, goal = 0, 0, 0, 0, None
 
     # Perform hill-climbing search
     if searchType == "hill-climbing":
@@ -296,8 +297,10 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
         # Loop indefinitely
         while True:
-            # TODO True? Double-check
             # queens_left serves as simulated annealing scheduling variable
+            # used alongside heuristic weight to determine the probability
+            # that a successor that does not maximize cost is chosen when
+            # the max isn't available.
             queens_left = (len(state.board) - len(state.queens))
 
             # Break loop and set return value if goal found
@@ -311,11 +314,14 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
                 expanded_states.add_to_expanded(state)
 
             if echo:
-                print(f'Iter: {outer_iterations} State:\n{state}\nSuccessors:\n')
-                message = ""
+                print(f'OUT Iter: {outer_iterations},  INN Iter: {inner_iterations}\nState:\n{state}\nSuccessors:\n')
+                print(f'Inner Ier: {inner_iterations}')
+
+            if echo_v:
+                message = "c: "
                 for i in range((state.cost) * -1):
                     message += '----'
-                # print(f'(-{state.cost * -1}) {message}')
+
 
             # If the state has successors
             if len(state.successors) > 0:
@@ -340,6 +346,7 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
                         successor_index = random.randint(1, 100)
 
                         for successor in temp_successors:
+                            inner_iterations += 1
                             upper_bound = temp_probs[temp_successors.index(successor)] * 100
                             if successor_index <= upper_bound:
                                 state = successor
@@ -363,53 +370,23 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
         population = [start]
         population_cap = int(len(start.board) / 2) + 1 if len(start.board) > 2 else len(start.board)
 
-        mutation_increment = 3
+        # mutation_increment = (int(len(start.board) * 0.2) + 1)
+        mutation_increment = 1
         mutation_timer = 0
+        mutation_check = True
         best_rec_weight = -1 * len(start.board)
+        wrst_best_rec_weight = -1 * len(start.board)
 
         # Loop until goal state found
         while goal is None:
 
-            # Create a copy of the population so that population can be modified without affecting loops
-            temp_population = population.copy()
-
-            # Loop through entire population
-            for chromosome in temp_population:
-
-                # Create copy of the temp population so it can be modified
-                other_chromosomes = temp_population.copy()
-
-                # Remove all occurrences of the current state (chromosome) from the population copy
-                for other_chromosome in temp_population:
-                    if check_boards_equal(chromosome, other_chromosome):
-                        other_chromosomes.remove(other_chromosome)
-
-                # Loop until all chromosomes other than the current one are removed from the other list
-                while len(other_chromosomes) > 0:
-                    random.seed()
-
-                    # Choose an index at random from the other population list
-                    random_partner_index = random.randint(0, len(other_chromosomes) - 1)
-                    # Pop and save the chosen chromosome
-                    random_partner = other_chromosomes.pop(random_partner_index)
-                    child_0, child_1 = genetic_crossover(chromosome, random_partner)
-                    outer_iterations += 1
-
-                    # Add each child to the list if they are not already in the population
-                    if f'{child_0}' not in [f'{chromosome}' for chromosome in population]:
-                        population.append(child_0)
-
-                    if f'{child_1}' not in [f'{chromosome}' for chromosome in population]:
-                        population.append(child_1)
-
-            # Sort population in ascending order of cost
-            population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
-                            reverse=True)
+            mutation_check = not mutation_check
 
             # Make a copy of the population so it can be modified
             temp_population = population.copy()
 
             for chromosome in temp_population:
+                inner_iterations += 1
                 queens_left = len(chromosome.board) - len(chromosome.queens)
 
                 # Check for goal state, set return value to current state and break loop if true
@@ -424,34 +401,124 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
                 # Add state's successors to population
                 for successor in chromosome.successors:
+                    inner_iterations += 1
                     if f'{successor}' not in [f'{chromosome}' for chromosome in population]:
                         population.append(successor)
 
-                # Sort population in ascending order of cost
-                population.sort(
-                    key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
-                    reverse=True)
+            if goal is not None:
+                break
 
-                # Cull lower weight chromosomes to reduce pop size to its max allowed
-                if len(population) > population_cap:
-                    population = population[:population_cap]
+            # Sort population in ascending order of cost
+            population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
+                            reverse=True)
 
-                # Calculate the best weight out of each chromosome in the population
-                best_pop_weight = population[0].cost - (len(population[0].board) - len(population[0].queens))
+            # Cull lower weight chromosomes to reduce pop size to its max allowed
+            if len(population) > population_cap:
+                population = population[:population_cap]
 
-                # If mutation timer increment reached
-                if mutation_timer >= mutation_increment:
-                    # Reset the mutation timer
-                    mutation_timer = 0
+            # Calculate the best weight out of each chromosome in the population
+            best_pop_weight = population[0].cost - (len(population[0].board) - len(population[0].queens))
+            wrst_pop_weight = population[-1].cost - (len(population[-1].board) - len(population[-1].queens))
 
-                    # If the best weight in the current population is at least 1 greater than the best recorded at the last increment
-                    if best_pop_weight > best_rec_weight + 1:
-                        # Set best recorded weight to new best
-                        best_rec_weight = best_pop_weight
+            mutation_probability = 0.1
 
-                    # Otherwise mutate
-                    else:
-                        mutate_population(population, best_pop_weight)
+            # If mutation timer increment reached and the best weight in the current population is at least 1 greater than the best recorded at the last increment
+            # if mutation_check:
+            if mutation_timer >= mutation_increment:
+                # Reset the mutation timer
+                mutation_timer = 0
+
+                best_prob_mod = 0.01
+                biodiv_prob_mod = 0.0
+                wrst_prob_mod = 1.0 / len(population[0].board)
+
+                delta_fitness = -1 * float(best_pop_weight - best_rec_weight)
+                bio_div = float(best_pop_weight - wrst_pop_weight)
+                delta_wrst = -1 * float(wrst_pop_weight - wrst_best_rec_weight)
+
+                best_fitness_prob = (float(len(population)) * best_prob_mod) - (best_prob_mod * delta_fitness)
+                biodiversity_prob = (float(len(population)) * biodiv_prob_mod) - (biodiv_prob_mod * bio_div)
+                wrst_fitness_prob = (float(len(population)) * wrst_prob_mod) - (wrst_prob_mod * delta_wrst)
+
+                mutation_probability += (biodiversity_prob + best_fitness_prob + wrst_fitness_prob) * 100.0
+
+                # if best_pop_weight - best_rec_weight < 1
+
+                if echo_v:
+                    print(f'Prob: {int(mutation_probability)}\tBest Pop.: {best_pop_weight}\tWorst Pop.: {wrst_pop_weight}\nBest Rec.: {best_rec_weight}\tWorst Rec.: {wrst_best_rec_weight}\n')
+
+                    if mutation_probability > 100.0:
+                        x = 0
+                    if best_fitness_prob > 0.0:
+                        x = 0
+                    if wrst_fitness_prob > 1.0:
+                        x = 0
+
+                # If current best weight is better than the recorded best
+                if best_pop_weight > best_rec_weight:
+                    # Set best recorded weight to new best
+                    best_rec_weight = best_pop_weight
+                    # If current worst weight is better than the recorded worst
+                    if wrst_pop_weight > wrst_best_rec_weight:
+                        # Set threshold of worst weight to new population worst
+                        wrst_best_rec_weight = wrst_pop_weight
+
+            random.seed()
+            genetic_operation = float(random.randint(1, 100))
+
+            if genetic_operation == 0.0:
+                x = 0
+
+            if genetic_operation < mutation_probability:
+                mutations += 1
+                # Otherwise mutate
+                mutate_population(population, best_pop_weight)
+
+            else:
+                # Create a copy of the population so that population can be modified without affecting loops
+                temp_population = population.copy()
+
+                # Loop through entire population
+                for chromosome in temp_population:
+
+                    if check_for_weird(chromosome):
+                        x = 0
+
+                    # Create copy of the temp population so it can be modified
+                    other_chromosomes = temp_population.copy()
+
+                    # Remove all occurrences of the current state (chromosome) from the population copy
+                    for other_chromosome in temp_population:
+                        inner_iterations += 1
+                        if check_boards_equal(chromosome, other_chromosome):
+                            other_chromosomes.remove(other_chromosome)
+
+                    # Loop until all chromosomes other than the current one are removed from the other list
+                    while len(other_chromosomes) > 0:
+                        inner_iterations += 1
+                        random.seed()
+
+                        # Choose an index at random from the other population list
+                        random_partner_index = random.randint(0, len(other_chromosomes) - 1)
+                        # Pop and save the chosen chromosome
+                        random_partner = other_chromosomes.pop(random_partner_index)
+                        child_0, child_1 = genetic_crossover(chromosome, random_partner)
+                        crossovers += 1
+
+                        # Add each child to the list if they are not already in the population
+                        if f'{child_0}' not in [f'{chromosome}' for chromosome in population]:
+                            population.append(child_0)
+
+                        if f'{child_1}' not in [f'{chromosome}' for chromosome in population]:
+                            population.append(child_1)
+
+            # Sort population in ascending order of cost
+            population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
+                            reverse=True)
+
+            # # Cull lower weight chromosomes to reduce pop size to its max allowed
+            # if len(population) > population_cap:
+            #     population = population[:population_cap]
 
             # Increment mutation timer
             mutation_timer += 1
@@ -465,22 +532,66 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
     expanded_states.clear_expanded()
 
-    return goal, outer_iterations
+    return goal, (outer_iterations, inner_iterations, crossovers, mutations)
 
 
 echo = False
+echo_v = False
 
+overall_results = []
 results = []
-tests = 10
-n = 6
-test_types = ["hill-climbing", "genetic", "PSO"]
-test_type = 0
-for i in range(tests):
-    start_state = nqueen_start(n)
-    goal_state = nqueen_heuristic_search(start_state, nqueen_successors, test_types[test_type], check_genetic)
-    results.append(float(goal_state[1]))
-    print(f'Test {i + 1}/{tests} (n = {n}) Goal:\n{goal_state[0]}cost: {goal_state[0].cost}\n{float(goal_state[1])} iterations/generations\n')
-print(f'Test Type: {test_types[test_type]}\nn = {n}\n# of tests: {tests}\nIteration Counts: {results}\nAverage: {math.fsum(results)/float(len(results))}')
+results_0 = []
+tests = 25
+n = 8
+# test_types = ["hill-climbing", "genetic", "PSO"]
+# test_types = ["genetic", "PSO"]
+test_types = ["genetic"]
+
+for test_type in test_types:
+    for i in range(tests):
+        start_state = nqueen_start(n)
+        search_result = nqueen_heuristic_search(start_state, nqueen_successors, test_type, check_genetic)
+
+        inn_iter_count = float(search_result[1][2]) if test_type == "genetic" else float(search_result[1][0])
+        out_iter_count = float(search_result[1][3]) if test_type == "genetic" else float(search_result[1][1])
+        goal_state = search_result[0]
+
+        if echo_v and goal_state is not None:
+            print(f'Test {i + 1}/{tests} (n = {n}) Goal:\n{goal_state}cost: {goal_state.cost}\n{inn_iter_count} iterations/generations')
+
+            if test_type == "genetic":
+                print(f'{out_iter_count} mutations')
+
+        elif echo: print(f'Test {i + 1} finished')
+
+        results.append(inn_iter_count)
+        results_0.append(out_iter_count)
+
+    average = stats.mean(results)
+    std_dev = stats.stdev(results)
+
+    average_0 = stats.mean(results_0)
+    std_dev_0 = stats.stdev(results_0)
+
+    if echo:
+        print(f'Test Type: {test_type}\nn = {n}\n# of tests: {tests}\nIteration Counts: {results}\nAverage: {average}\nStd. Deviation: {std_dev}')
+    overall_results.append(((average, std_dev), (average_0, std_dev_0)))
+    results.clear()
+
+print()
+for i, test_type in enumerate(test_types):
+
+    if str(test_type) == "genetic":
+        print(f'Test: {test_type} (n = {n}):'
+              f'\nAvg. Perf: {overall_results[i][0][0]} generations'
+              f'\nStd. Deviation: {overall_results[i][0][1]}'
+              f'\n\nAvg. Mutations: {overall_results[i][1][0]}'
+              f'\nAvg. Deviation: Mutations: {overall_results[i][1][1]}'
+              f'\n\n# of tests: {tests}\n')
+    else:
+        print(f'Test: {test_type} (n = {n}):'
+              f'\nAvg. Perf: {overall_results[i][0][0]} iterations'
+              f'\nStd. Deviation: {overall_results[i][0][1]}\n\n# of tests: {tests}\n')
 
 # Results:
 #
