@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="48665d0b-3b22-41ed-ad2e-e8557a3d11b0" name="Changes" comment="Mostly comments, some refactors/tidying up code">
+    <list default="true" id="48665d0b-3b22-41ed-ad2e-e8557a3d11b0" name="Changes" comment="Refactored genetic">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utility.py" beforeDir="false" afterPath="$PROJECT_DIR$/utility.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,11 +49,12 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python._pydev_execfile.executor": "Debug",
-    "Python.main.executor": "Debug",
+    "Python.main.executor": "Run",
     "Python.utility.executor": "Debug",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main"
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true"
   }
 }]]></component>
   <component name="SharedIndexes">
@@ -105,7 +105,15 @@
       <option name="project" value="LOCAL" />
       <updated>1713467669043</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Refactored genetic">
+      <option name="closed" value="true" />
+      <created>1713775560855</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1713775560855</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -124,7 +132,8 @@
     <MESSAGE value="Polished up hill-climbing some and additional comments. Getting closer with genetic algorithm" />
     <MESSAGE value="Genetic algorithm finished, just needs polish and comments" />
     <MESSAGE value="Mostly comments, some refactors/tidying up code" />
-    <option name="LAST_COMMIT_MESSAGE" value="Mostly comments, some refactors/tidying up code" />
+    <MESSAGE value="Refactored genetic" />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactored genetic" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

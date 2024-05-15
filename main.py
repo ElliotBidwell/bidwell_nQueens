@@ -1,12 +1,13 @@
 import random
 import math
+import time
 import statistics as stats
 from utility import *
+import numpy as np
 
 # Globals for toggling echo mode and verbose echo (echo_v) mode
 echo = False
 echo_v = False
-
 
 # Class contains a dictionary used to store every state that is expanded during a search. Used to manage this data in
 # an efficient and encapsulated manner.
@@ -60,6 +61,7 @@ class NqueenState:
         self.action = None # 2-tuple representing the coordinates of the queen placed to transition to this state
         self.successors = [] # List to contain references to each of this state's successors
         self.parent = parent # Reference to this state's parent state node
+        self.velocity = []
 
     # Returns a formatted string visualizing the state's board
     def __str__(self):
@@ -79,6 +81,13 @@ class NqueenState:
         self.board = [[tile for tile in row] for row in new_board]
         self.update_queens()
 
+    def set_velocity(self, new_velocity=None):
+
+        if new_velocity is None:
+            self.velocity = [[0 for _ in range(len(self.board))] for _ in range(len(self.board))]
+        else:
+            self.velocity = new_velocity.copy()
+
     # Searches the 2D list self.board for the existence of each occurrence, if any, of the char 'Q' and puts
     # the 2-tuple of list indices of each occurrence in self.queens.
     def update_queens(self):
@@ -88,7 +97,7 @@ class NqueenState:
                 if tile == 'Q':
                     self.queens.append((row_index, col_index))
 
-    # Places a queen 'Q' in the row specified in the parameters, in the next empty column on the board.
+    # Places a queen 'Q' in the row specified in the parameters, or in the next empty column on the board.
     def place_queen(self, row, col=None):
         # Place the queen
 
@@ -96,6 +105,13 @@ class NqueenState:
             col = len(self.queens)
 
         self.board[row][col] = 'Q'
+        self.update_queens()
+
+    def remove_queen(self, col):
+        for queen in self.queens:
+            if queen[1] == col:
+                self.board[queen[0]][col] = '-'
+                break
         self.update_queens()
 
     # Returns a formatted string visualizing the boards of each of the state's successor states
@@ -132,6 +148,7 @@ class NqueenState:
             output_string += f'{row}\n'
 
         return output_string
+
 
 # Returns a list of state objects from generating the input state's successors
 # Will always return n successors unless the state is being expanded is one
@@ -245,6 +262,9 @@ def nqueen_start(n):
     return state
 
 
+"""
+
+"""
 def mutate_population(population, pop_best):
 
     for mutation_index in range(len(population) - 1):
@@ -281,7 +301,9 @@ def mutate_population(population, pop_best):
                 None
 
 
-def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
+def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bigPop=0):
+
+    biggest_pop = bigPop
 
     inner_iterations, outer_iterations, crossovers, mutations, goal = 0, 0, 0, 0, None
 
@@ -330,6 +352,7 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
                 costs = [successor.cost - queens_left for successor in state.successors]
                 new_state = state.successors[costs.index(max(costs))]
 
+                # If the
                 if not expanded_states.search_expanded(new_state):
                     state = new_state
                 elif len(state.successors) > 1:
@@ -365,8 +388,10 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
             outer_iterations += 1
 
+    # Perform a genetic search
     if searchType == "genetic" and checkGoal is not None:
 
+        time_it = False
         population = [start]
         population_cap = int(len(start.board) / 2) + 1 if len(start.board) > 2 else len(start.board)
 
@@ -386,7 +411,7 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
             temp_population = population.copy()
 
             for chromosome in temp_population:
-                inner_iterations += 1
+                # inner_iterations += 1
                 queens_left = len(chromosome.board) - len(chromosome.queens)
 
                 # Check for goal state, set return value to current state and break loop if true
@@ -401,25 +426,49 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
                 # Add state's successors to population
                 for successor in chromosome.successors:
-                    inner_iterations += 1
+                    # inner_iterations += 1
                     if f'{successor}' not in [f'{chromosome}' for chromosome in population]:
                         population.append(successor)
 
+            # Break the loop if the goal was found
             if goal is not None:
                 break
+
+            if len(population) > biggest_pop:
+                biggest_pop = len(population)
+                time_it = True
+
+            start_time = 0
+            if time_it:
+                start_time = time.time()
 
             # Sort population in ascending order of cost
             population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
                             reverse=True)
 
+            if time_it:
+                end_time = time.time()
+                runtime = end_time - start_time
+                if runtime > 0.1:
+                    x = 0
+
             # Cull lower weight chromosomes to reduce pop size to its max allowed
             if len(population) > population_cap:
+
+                start_time = time.time()
                 population = population[:population_cap]
+
+                if time_it:
+                    end_time = time.time()
+                    runtime = end_time - start_time
+                    if runtime > 0.0:
+                        x = 0
 
             # Calculate the best weight out of each chromosome in the population
             best_pop_weight = population[0].cost - (len(population[0].board) - len(population[0].queens))
             wrst_pop_weight = population[-1].cost - (len(population[-1].board) - len(population[-1].queens))
 
+            # Set the base mutation probability to 10%
             mutation_probability = 0.1
 
             # If mutation timer increment reached and the best weight in the current population is at least 1 greater than the best recorded at the last increment
@@ -428,31 +477,56 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
                 # Reset the mutation timer
                 mutation_timer = 0
 
-                best_prob_mod = 0.01
-                biodiv_prob_mod = 0.0
-                wrst_prob_mod = 1.0 / len(population[0].board)
+                # The weights by which each aspect of the population impacts the probability that the population
+                # will mutate
+                best_prob_mod = 0.05
+                biodiv_prob_mod = 0.05
+                wrst_prob_mod = 0.005
+                # wrst_prob_mod = 1.0 / len(population[0].board)
 
-                delta_fitness = -1 * float(best_pop_weight - best_rec_weight)
-                bio_div = float(best_pop_weight - wrst_pop_weight)
+                # Calculate the change in the best and worst fitness among the population compared to those of the
+                # previously checked generation.
+                delta_best = -1 * float(best_pop_weight - best_rec_weight)
                 delta_wrst = -1 * float(wrst_pop_weight - wrst_best_rec_weight)
 
-                best_fitness_prob = (float(len(population)) * best_prob_mod) - (best_prob_mod * delta_fitness)
-                biodiversity_prob = (float(len(population)) * biodiv_prob_mod) - (biodiv_prob_mod * bio_div)
-                wrst_fitness_prob = (float(len(population)) * wrst_prob_mod) - (wrst_prob_mod * delta_wrst)
+                # Calculate biodiversity by calculating the difference between the worst and best fitness among
+                # the population.
+                bio_div = float(best_pop_weight - wrst_pop_weight)
 
-                mutation_probability += (biodiversity_prob + best_fitness_prob + wrst_fitness_prob) * 100.0
+                # Calculate the amount by which the probability of the mutating will increase based on the change in
+                # the best and worst fitness
+                best_fitness_prob = (float(len(population)) * best_prob_mod) - (best_prob_mod * delta_best)
+                wrst_fitness_prob = (float(len(population)) * wrst_prob_mod) - (wrst_prob_mod * delta_wrst)
+                # wrst_fitness_prob = (float(len(population)) * wrst_prob_mod) - (wrst_prob_mod * delta_wrst)
+                
+                # Calculate the amount by which the mutation probability will increase based on the biodiversity among
+                # the population.
+                temp = float(len(population)) - bio_div
+                biodiversity_prob = bio_div * biodiv_prob_mod
+
+                if bio_div < 0.0:
+                    x = 0
+
+                # mutation_probability += (biodiversity_prob + best_fitness_prob + wrst_fitness_prob) * 100.0
+                mutation_probability += (best_fitness_prob + wrst_fitness_prob) * 100.0
+
+                if delta_best >= bio_div and bio_div > 0.0:
+                    mutation_probability -= biodiversity_prob * 100
+
+                if mutation_probability < 10:
+                    mutation_probability = 10
 
                 # if best_pop_weight - best_rec_weight < 1
 
-                if echo_v:
-                    print(f'Prob: {int(mutation_probability)}\tBest Pop.: {best_pop_weight}\tWorst Pop.: {wrst_pop_weight}\nBest Rec.: {best_rec_weight}\tWorst Rec.: {wrst_best_rec_weight}\n')
-
-                    if mutation_probability > 100.0:
-                        x = 0
-                    if best_fitness_prob > 0.0:
-                        x = 0
-                    if wrst_fitness_prob > 1.0:
-                        x = 0
+                # if echo_v:
+                #     print(f'Prob: {int(mutation_probability)}\tBest Pop.: {best_pop_weight}\tWorst Pop.: {wrst_pop_weight}\nBest Rec.: {best_rec_weight}\tWorst Rec.: {wrst_best_rec_weight}\n')
+                #
+                #     if mutation_probability > 100.0:
+                #         x = 0
+                #     if best_fitness_prob > 0.0:
+                #         x = 0
+                #     if wrst_fitness_prob > 1.0:
+                #         x = 0
 
                 # If current best weight is better than the recorded best
                 if best_pop_weight > best_rec_weight:
@@ -472,9 +546,25 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
             if genetic_operation < mutation_probability:
                 mutations += 1
                 # Otherwise mutate
+
+                start_time = 0
+                if time_it:
+                    start_time = time.time()
+
                 mutate_population(population, best_pop_weight)
 
+                if time_it:
+                    end_time = time.time()
+                    runtime = end_time - start_time
+                    if runtime > 0.1:
+                        x = 0
+
             else:
+
+                start_time = 0
+                if time_it:
+                    start_time = time.time()
+
                 # Create a copy of the population so that population can be modified without affecting loops
                 temp_population = population.copy()
 
@@ -512,6 +602,14 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
                         if f'{child_1}' not in [f'{chromosome}' for chromosome in population]:
                             population.append(child_1)
 
+                if time_it:
+                    end_time = time.time()
+                    runtime = end_time - start_time
+                    if runtime > 0.1:
+                        x = 0
+
+                outer_iterations += 1
+
             # Sort population in ascending order of cost
             population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
                             reverse=True)
@@ -525,156 +623,263 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None):
 
     # TODO Implement PSO
     if searchType == "PSO":
-        None
+        best_fitness = float('inf')
+        goal = None
+
+        num_queens = len(start.board)
+        # swarm_size = max(6, int(3.75 * num_queens))
+        swarm_size = 3
+
+        max_iters = 1000
+
+        swarm = initialize_swarm(num_queens, swarm_size)
+
+        for i in range(max_iters):
+            best_particle = max(swarm, key=lambda particle: particle.cost)
+
+            if abs(best_particle.cost) < best_fitness:
+                best_fitness = abs(best_particle.cost)
+                goal = best_particle
+                print(f'Best fitness: {best_fitness}')
+
+            if best_fitness == 0:
+                print(f'Best fitness: {best_fitness}')
+                break
+
+            mean_pos_board, variance_pos_board = update_macro_state(swarm)
+            swarm = advance_swarm(swarm, mean_pos_board, variance_pos_board)
+
+            outer_iterations += 1
+
+        # print(f'Best:\n{best_particle}\nCost: {best_particle.cost}\nIterations: {outer_iterations}\n')
 
     if echo:
         print(f'Iter: {outer_iterations}')
 
     expanded_states.clear_expanded()
 
-    return goal, (outer_iterations, inner_iterations, crossovers, mutations)
+    return goal, (outer_iterations, inner_iterations, crossovers, mutations), biggest_pop
 
+
+"""
+Selects an outcome based on the given list of probs.    
+
+Parameters:
+probs (list of float): A list of probs summing to 1.0.
+
+Returns:
+int: The index of the selected outcome.
+"""
+def select_outcome(probs):
+
+    if sum(probs) == 1.0:
+        cumulative_probabilities = [sum(probs[:i + 1]) for i in range(len(probs))]
+        random_value = random.random()
+
+        for i, cumulative_probability in enumerate(cumulative_probabilities):
+            if random_value < cumulative_probability:
+                return i
+    else:
+        return -1
+
+def initialize_swarm(n, size):
+    swarm_permutations = [np.random.permutation(n) for _ in range(size)]
+    swarm = []
+
+    for i, particle_permutation in enumerate(swarm_permutations):
+        temp_state = nqueen_start(n)
+
+        for queen_placement in particle_permutation:
+            temp_state.successors = nqueen_successors(temp_state)
+            temp_state = temp_state.successors[queen_placement]
+
+        swarm.append(nqueen_start(n))
+        swarm[i].set_board(temp_state.board)
+        swarm[i].cost = temp_state.cost
+
+    return swarm
+
+def update_macro_state(swarm):
+    n = len(swarm[0].board)
+
+    mean_board = [[0 for _ in range(n)] for _ in range(n)]
+    variance_board = [[0 for _ in range(n)] for _ in range(n)]
+
+    for i in range(n):
+        for j in range(n):
+            queen_positions = [1 if (i, j) in particle.queens else 0 for particle in swarm]
+            mean_value = stats.mean(queen_positions)
+            variance_value = stats.variance(queen_positions) if len(queen_positions) > 1 else 0
+            mean_board[i][j] = mean_value
+            variance_board[i][j] = variance_value
+
+    return mean_board, variance_board
+
+def advance_swarm(swarm, mean_board, variance_board):
+    new_swarm = []
+
+    for index, particle in enumerate(swarm):
+        n = len(particle.board)
+
+        new_particle = nqueen_start(n)
+        new_particle.set_board(particle.board)
+        new_particle.set_velocity()
+
+        temp_velocity = new_particle.velocity.copy()
+
+        for i in range(n):
+            for j in range(n):
+
+                # Update velocity
+                inertia = 0.5
+                cognitive = 0.8 * ((select_outcome([0.1, 0.9]) * 0.1) + 0.4) * (1 if particle.board[i][j] == 'Q' else 0)
+                social = 0.9 * select_outcome([0.1, 0.9]) * mean_board[i][j]
+                temp_velocity[i][j] = inertia * new_particle.velocity[i][j] + cognitive + social
+
+                if random.random() < temp_velocity[i][j]:
+                    new_particle.remove_queen(j)
+                    new_particle.place_queen(i, j)
+
+        new_swarm.append(nqueen_start(n))
+        new_swarm[index].set_board(new_particle.board)
+        new_swarm[index].set_velocity(temp_velocity)
+        new_swarm[index].cost = nqueen_compute_weight(new_swarm[index])
+
+
+    return new_swarm
 
 echo = False
-echo_v = False
+# echo = True
+# echo_v = False
+echo_v = True
+result_echo = False
+# result_echo = True
+
+biggest_pop = 0
 
 overall_results = []
 results = []
 results_0 = []
-tests = 25
-n = 8
+runtimes = []
+
+tests = 10
+n = 10
+
 # test_types = ["hill-climbing", "genetic", "PSO"]
 # test_types = ["genetic", "PSO"]
-test_types = ["genetic"]
+# test_types = ["hill-climbing", "genetic"]
+# test_types = ["hill-climbing"]
+# test_types = ["genetic"]
+test_types = ["PSO"]
 
+# Test Type Loop
 for test_type in test_types:
+    # Test Run Loop
     for i in range(tests):
-        start_state = nqueen_start(n)
-        search_result = nqueen_heuristic_search(start_state, nqueen_successors, test_type, check_genetic)
+        start_time = time.time()
 
-        inn_iter_count = float(search_result[1][2]) if test_type == "genetic" else float(search_result[1][0])
-        out_iter_count = float(search_result[1][3]) if test_type == "genetic" else float(search_result[1][1])
+        start_state = nqueen_start(n)
+        search_result = nqueen_heuristic_search(start_state, nqueen_successors, test_type, check_genetic, biggest_pop)
+
+        end_time = time.time()
+        runtime = (end_time - start_time) * 1000  # Convert to milliseconds
+        runtimes.append(runtime)
+
+        # inn_iter_count = float(search_result[1][2]) if test_type == "genetic" else float(search_result[1][0])
+        # out_iter_count = float(search_result[1][3]) if test_type == "genetic" else float(search_result[1][1])
+        inn_iter_count = float(search_result[1][0])
+        out_iter_count = float(search_result[1][1])
+        mutations = search_result[1][3]
+        crossovers = search_result[1][2]
         goal_state = search_result[0]
+        biggest_pop = search_result[2]
 
         if echo_v and goal_state is not None:
-            print(f'Test {i + 1}/{tests} (n = {n}) Goal:\n{goal_state}cost: {goal_state.cost}\n{inn_iter_count} iterations/generations')
+            print(
+                f'Test {i + 1}/{tests} (n = {n}) Goal:\n{goal_state}'
+                f'cost: {goal_state.cost}\n{inn_iter_count} iterations/generations\n'
+                f'Runtime: {runtime:0.2f} ms\n')
 
             if test_type == "genetic":
-                print(f'{out_iter_count} mutations')
+                print(f'{mutations} mutations\n'
+                      f'{crossovers} crossovers'
+                      f'Runtime: {runtime:0.2f} ms\n')
 
-        elif echo: print(f'Test {i + 1} finished')
+        elif echo:
+            print(f'Test {i + 1} finished\nRuntime: {runtime:0.2f} ms\n')
 
-        results.append(inn_iter_count)
-        results_0.append(out_iter_count)
+        if test_type == "genetic":
+            results.append(crossovers)
+            results_0.append(mutations)
+        else:
+            results.append(inn_iter_count)
+            results_0.append(out_iter_count)
 
-    average = stats.mean(results)
-    std_dev = stats.stdev(results)
+    if result_echo:
+        avg_perf = stats.mean(results)
+        std_dev_perf = stats.stdev(results)
 
-    average_0 = stats.mean(results_0)
-    std_dev_0 = stats.stdev(results_0)
+        avg_perf_0 = stats.mean(results_0)
+        std_dev_perf_0 = stats.stdev(results_0)
 
-    if echo:
-        print(f'Test Type: {test_type}\nn = {n}\n# of tests: {tests}\nIteration Counts: {results}\nAverage: {average}\nStd. Deviation: {std_dev}')
-    overall_results.append(((average, std_dev), (average_0, std_dev_0)))
+        # Calculate and print the avg_perf and standard deviation of runtimes
+        avg_runtime = stats.mean(runtimes)
+        std_dev_runtime = stats.stdev(runtimes)
+
+        # if echo or echo_v:
+        # print(
+        #     f'Test Type: {test_type}\n'
+        #     f'n = {n}\n# of tests: {tests}\n'
+        #     f'Iteration Counts: {results}\n'
+        #     f'Average: {avg_perf}\n'
+        #     f'Std. Deviation: {std_dev_perf}\n'
+        #     f'Average runtime: {avg_runtime:.2f} ms\n'
+        #     f'Standard deviation of runtimes: {std_dev_runtime:.2f} ms\n'
+        # )
+
+        overall_results.append(((avg_perf, std_dev_perf), (avg_perf_0, std_dev_perf_0), (avg_runtime, std_dev_runtime)))
     results.clear()
+    runtimes.clear()
 
 print()
-for i, test_type in enumerate(test_types):
+if result_echo:
+    for i, test_type in enumerate(test_types):
 
-    if str(test_type) == "genetic":
-        print(f'Test: {test_type} (n = {n}):'
-              f'\nAvg. Perf: {overall_results[i][0][0]} generations'
-              f'\nStd. Deviation: {overall_results[i][0][1]}'
-              f'\n\nAvg. Mutations: {overall_results[i][1][0]}'
-              f'\nAvg. Deviation: Mutations: {overall_results[i][1][1]}'
-              f'\n\n# of tests: {tests}\n')
-    else:
-        print(f'Test: {test_type} (n = {n}):'
-              f'\nAvg. Perf: {overall_results[i][0][0]} iterations'
-              f'\nStd. Deviation: {overall_results[i][0][1]}\n\n# of tests: {tests}\n')
+        if str(test_type) == "genetic":
+            print(f'Test: genetic (n = {n}):\n'
+                  f' -\t# of tests: {tests}\n\n'
+                  f' -\tAvg. Crossovers: {overall_results[i][0][0]}\n'
+                  f' -\tStd. Dev. Crossovers: {overall_results[i][0][1]}\n\n'
+                  f' -\tAvg. Mutations: {overall_results[i][1][0]}\n'
+                  f' -\tStd. Dev. Mutations: {overall_results[i][1][1]}\n\n'
+                  f' -\tAverage runtime: {overall_results[i][2][0]:.2f} ms\n'
+                  f' -\tStd. Dev. Runtimes: {overall_results[i][2][1]:.2f} ms\n'
+                  )
+        else:
+            print(f'Test: {test_type} (n = {n}):\n'
+                  f' -\t# of tests: {tests}\n\n'
+                  f' -\tAvg. Performance: {overall_results[i][0][0]} iterations\n'
+                  f' -\tStd. Dev. Performance: {overall_results[i][0][1]}\n\n'
+                  f' -\tAverage runtime: {overall_results[i][2][0]:.2f} ms\n'
+                  f' -\tStd. Dev. Runtimes: {overall_results[i][2][1]:.2f} ms\n'
+                  )
 
-# Results:
+# probabilities = [0.5, 0.3, 0.1, 0.1]
+# temp = sum(probabilities)
+# selected_index = select_outcome(probabilities)
+# print(f"Selected outcome index: {selected_index}")
 #
-# Test Type: genetic
-# n = 6
-# # of tests: 5
-# Iteration Counts: [376.0, 68.0, 1157.0, 672.0, 860.0]
-# Average: 626.6
-
-# Test Type: hill-climbing
-# n = 6
-# # of tests: 5
-# Iteration Counts: [28441.0, 14018.0, 19099.0, 19093.0, 19103.0]
-# Average: 19950.8
+# prob_results = []
+# tests = 1000
 #
-# Test Type: genetic (AFTER)
-# n = 6
-# # of tests: 5
-# Iteration Counts: [71727.0, 252837.0, 41031.0, 276273.0, 178133.0]
-# Average: 164000.2
-
-
-
-
-
-
-
-
-
-
-
-# states = []
-# transitions = [-3, 0, -2, -5]
-# transitions = [0, 0, 2, 2]
-# transitions = [2, 6, 3, 1, 4, 0, 5]
-# transitions = [5, 6, 3, 4, 5, 6, 5]
-# transitions = [1, 2, 3, 4, 5, 6, 7]
-# state = nqueen_start(4)
-# i = 0
+# for i in range(tests):
+#     temp = select_outcome(probabilities)
 #
-# for transition in transitions:
-#     state.successors = nqueen_successors(state)
-#     state = state.successors[transition]
-#     print(f'State {i}:\n{state}cost: {state.cost}\n')
-#     i += 1
-
-
-# state_0 = nqueen_start(5)
-# state_0.successors = nqueen_successors(state_0)
+#     if temp != -1:
+#         prob_results.append(temp)
+#     else:
+#         x = 0
 #
-# state_1a = state_0.successors[0]
-# state_1a.successors = nqueen_successors(state_1a)
-#
-# state_2a = state_1a.successors[0]
-# state_2a.successors = nqueen_successors(state_2a)
-#
-# state_3a = state_2a.successors[0]
-# state_3a.successors = nqueen_successors(state_3a)
-#
-# state_4a = state_3a.successors[0]
-# state_4a.successors = nqueen_successors(state_4a)
-#
-# state_5a = state_4a.successors[0]
-# state_5a.successors = nqueen_successors(state_5a)
-#
-#
-# state_1b = state_0.successors[4]
-# state_1b.successors = nqueen_successors(state_1b)
-#
-# state_2b = state_1b.successors[4]
-# state_2b.successors = nqueen_successors(state_2b)
-#
-# state_3b = state_2b.successors[4]
-# state_3b.successors = nqueen_successors(state_3b)
-#
-# state_4b = state_3b.successors[4]
-# state_4b.successors = nqueen_successors(state_4b)
-#
-# state_5b = state_4b.successors[4]
-# state_5b.successors = nqueen_successors(state_5b)
-
-# print(f'Parents:\n{state_4a}\n{state_4b}')
-#
-# child_0, child_1 = genetic_crossover(state_5a, state_5b)
-#
-# print(f'Children:\n{child_0}\n{child_1}')
+# print(f'Frequencies:')
+# for i in range(len(probabilities)):
+#     print(f' - {i} ({probabilities[i]}): {float(prob_results.count(i)) / float(tests)}, Dev. From Prob: {probabilities[i] - (float(prob_results.count(i)) / float(tests))}')
