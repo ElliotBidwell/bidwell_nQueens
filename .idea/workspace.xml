@@ -4,9 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="48665d0b-3b22-41ed-ad2e-e8557a3d11b0" name="Changes" comment="Refactored genetic">
+    <list default="true" id="48665d0b-3b22-41ed-ad2e-e8557a3d11b0" name="Changes" comment="Genetic and hill climbing close to, if not actually, finished. PSO is coming along.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utility.py" beforeDir="false" afterPath="$PROJECT_DIR$/utility.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -46,17 +47,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python._pydev_execfile.executor": "Debug",
-    "Python.main.executor": "Run",
-    "Python.utility.executor": "Debug",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python._pydev_execfile.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.utility.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/doobl/PycharmProjects/gradeCalculator&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -113,7 +115,15 @@
       <option name="project" value="LOCAL" />
       <updated>1713775560855</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Genetic and hill climbing close to, if not actually, finished. PSO is coming along.">
+      <option name="closed" value="true" />
+      <created>1715750713870</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1715750713870</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -133,7 +143,8 @@
     <MESSAGE value="Genetic algorithm finished, just needs polish and comments" />
     <MESSAGE value="Mostly comments, some refactors/tidying up code" />
     <MESSAGE value="Refactored genetic" />
-    <option name="LAST_COMMIT_MESSAGE" value="Refactored genetic" />
+    <MESSAGE value="Genetic and hill climbing close to, if not actually, finished. PSO is coming along." />
+    <option name="LAST_COMMIT_MESSAGE" value="Genetic and hill climbing close to, if not actually, finished. PSO is coming along." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

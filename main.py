@@ -5,32 +5,49 @@ import statistics as stats
 from utility import *
 import numpy as np
 
-# Globals for toggling echo mode and verbose echo (echo_v) mode
-echo = False
-echo_v = False
 
-# Class contains a dictionary used to store every state that is expanded during a search. Used to manage this data in
-# an efficient and encapsulated manner.
+#
 class ExpandedStates:
+    """
+    Class contains a dictionary used to store every state that is expanded during a search, as well as the number of
+    states in the dictionary. It is used to manage this data in an efficient and encapsulated manner.
+    """
 
     def __init__(self):
-        # Create a new empty dictionary and start the count at 0
+        """
+        Create a new empty dictionary and start the count at 0
+        """
         self.expanded = {}
         self.count = 0
 
-    # Add a new state to the dictionary, using its string representation as the key and the object itself as the
-    # value.
     def add_to_expanded(self, state):
+        """
+        Add the passed in state to the dictionary and update the count, using its string representation as the key
+        and the object itself as the value.
+
+        :param state: The state to be added
+        """
+
         self.expanded[str(state)] = state
         self.count += 1
 
-    # Clears the expanded state dictionary
     def clear_expanded(self):
+        """
+        Clears the expanded state dictionary and resets the count.
+        """
+
         self.expanded.clear()
         self.count = 0
 
-    # Searches the expanded state dictionary for the existence of the passed in state.
     def search_expanded(self, state):
+        """
+        Searches the expanded state dictionary for the existence of the passed in state and returns a boolean
+        indicating whether the state was found.
+
+        :param state:
+        :return: True if found, else false
+        """
+
         try:
             temp = self.expanded[str(state)]
             return True
@@ -38,12 +55,70 @@ class ExpandedStates:
             return False
 
 
-# A global object that is used by many functions and classes to track which and how many states have been expanded,
-# as well as modify that data.
-expanded_states = ExpandedStates()
+class ComplexityTracker:
+    """
+    This class defines an object that keeps track of various performance metrics gathered as a search executes.
+    It tracks the number of inner/outer loop iterations, mutations, crossovers, and successors generated.
+    """
+
+    def __init__(self):
+        self.inner_iterations = 0
+        self.outer_iterations = 0
+        self.mutations = 0
+        self.crossovers = 0
+        self.successors_generated = 0
+
+    """
+    The following are functions to either increment one of the counters by 1 or reset them back to 0
+    """
+    def increment_inner(self):
+        self.inner_iterations += 1
+
+    def increment_outer(self):
+        self.outer_iterations += 1
+
+    def increment_mutations(self):
+        self.outer_iterations += 1
+
+    def increment_crossovers(self):
+        self.outer_iterations += 1
+
+    def increment_successors(self):
+        self.outer_iterations += 1
+
+    def reset_inner(self):
+        self.inner_iterations = 0
+
+    def reset_outer(self):
+        self.outer_iterations = 0
+
+    def reset_mutations(self):
+        self.outer_iterations += 1
+
+    def reset_crossovers(self):
+        self.outer_iterations += 1
+
+    def reset_successors(self):
+        self.outer_iterations += 1
+
+    def reset_all_counters(self):
+        """
+        This functions resets all counters
+        """
+
+        self.reset_inner()
+        self.reset_outer()
+        self.reset_mutations()
+        self.reset_crossovers()
+        self.reset_successors()
 
 
 class NqueenState:
+    """
+    This class defines an object representing a single state in the state space. It contains class variables for
+    several pieces of data used by the search algorithms during their execution. This includes the state's board,
+    cost, queen locations, successors, velocity, and personal best fitness/cost.
+    """
 
     # Constructor
     def __init__(self, parent=None, board=[]):
@@ -55,16 +130,30 @@ class NqueenState:
             # Else, start at column 0
             self.currentCol = 0
 
-        self.cost = 0 # The heuristic cost of the state, based on number of pairs of queens threatening each other
-        self.board = board # 2D list representing the chess board
-        self.queens = [] # List of tuples representing the coordinates of each queen
-        self.action = None # 2-tuple representing the coordinates of the queen placed to transition to this state
-        self.successors = [] # List to contain references to each of this state's successors
-        self.parent = parent # Reference to this state's parent state node
+        # The heuristic cost of the state, based on number of pairs of queens threatening each other
+        self.cost = 0
+        # 2D list representing the chess board
+        self.board = board
+        # List of tuples representing the coordinates of each queen
+        self.queens = []
+        # 2-tuple representing the coordinates of the queen placed to transition to this state
+        self.action = None
+        # List to contain references to each of this state's successors
+        self.successors = []
+        # Reference to this state's parent state node
+        self.parent = parent
+        # A 2D list of floats with the same dimensions as the board where each value is the velocity component
+        # that corresponds to the matching space on the board
         self.velocity = []
+        # The best cost/fitness that this state has achieved
+        self.personal_best = float("-inf")
 
-    # Returns a formatted string visualizing the state's board
     def __str__(self):
+        """
+        Returns a formatted string visualizing the state's board
+
+        :return board_string: String representation of the board
+        """
         board_string = ""
         # Loop through each row/column and append the symbol in each space to the output string
         for row in self.board:
@@ -75,31 +164,66 @@ class NqueenState:
 
         return board_string
 
-    # Sets the state's board to the 2D list the gets passed in, then calls self.update_queens() to keep the list
-    # of queen coordinates up to date.
     def set_board(self, new_board):
+        """
+        Sets the state's board to the 2D list that gets passed in, then calls self.update_queens() to keep the list
+        of queen coordinates up to date.
+
+        :param new_board:
+        :return:
+        """
+
         self.board = [[tile for tile in row] for row in new_board]
         self.update_queens()
 
     def set_velocity(self, new_velocity=None):
+        """
+        Sets the state's velocity to the 2D list that gets passed in.
+
+        :param new_velocity: The velocity list to replace the existing one.
+        """
 
         if new_velocity is None:
             self.velocity = [[0 for _ in range(len(self.board))] for _ in range(len(self.board))]
         else:
             self.velocity = new_velocity.copy()
 
-    # Searches the 2D list self.board for the existence of each occurrence, if any, of the char 'Q' and puts
-    # the 2-tuple of list indices of each occurrence in self.queens.
+    def set_cost(self, new_cost):
+        """
+        Sets the cost of the state to the value passed in. If the new value is greater than the personal best, then
+        the personal best is set to that value
+
+        :param new_cost: The new cost
+        """
+
+        if new_cost > self.personal_best:
+            self.personal_best = new_cost
+
+        self.cost = new_cost
+
     def update_queens(self):
+        """
+        Updates the list of queen coordinates Searches the 2D list self.board for the existence of each occurrence,
+        if any, of the char 'Q' and puts the 2-tuple of list indices of each occurrence in self.queens.
+
+        :return:
+        """
+
         self.queens.clear()
         for row_index, row in enumerate(self.board):
             for col_index, tile in enumerate(row):
                 if tile == 'Q':
                     self.queens.append((row_index, col_index))
 
-    # Places a queen 'Q' in the row specified in the parameters, or in the next empty column on the board.
     def place_queen(self, row, col=None):
-        # Place the queen
+        """
+        Places a queen 'Q' in the row specified in the parameters, or in the next empty column on the board if no
+        column is given.
+
+        :param row:
+        :param col:
+        :return:
+        """
 
         if col is None:
             col = len(self.queens)
@@ -108,18 +232,35 @@ class NqueenState:
         self.update_queens()
 
     def remove_queen(self, col):
+        """
+        Replaces the queen in the specified column with a blank space. It does so be iterating through the list of queen
+        coordinates and replacing the queen whose column matches the one specified.
+
+        :param col:
+        :return:
+        """
         for queen in self.queens:
             if queen[1] == col:
                 self.board[queen[0]][col] = '-'
                 break
         self.update_queens()
 
-    # Returns a formatted string visualizing the boards of each of the state's successor states
     def print_successors(self):
+        """
+        Calls print_states() to return a formatted string visualizing the boards of each of the state's successor states
+
+        :return: Formatted successor string
+        """
         return self.print_states(self.successors)
 
-    #
     def print_states(self, states):
+        """
+        Returns a formatted string made up of the string representations of each state in the list that is passed in
+
+        :param states: The list of states
+        :return output_string: Formatted string representation of states
+        """
+
         output_string = ""
 
         # Array to contain each row of the eventual output string as its own separate string
@@ -150,10 +291,27 @@ class NqueenState:
         return output_string
 
 
-# Returns a list of state objects from generating the input state's successors
-# Will always return n successors unless the state is being expanded is one
-# in which all the queens have been placed and there are no more empty columns
+# Globals for toggling echo mode and verbose echo (echo_v) mode
+echo = False
+echo_v = False
+
+# TODO
+complexTracker = ComplexityTracker()
+
+# A global object that is used by many functions and classes to track which and how many states have been expanded,
+# as well as modify that data.
+expanded_states = ExpandedStates()
+
+# 
 def nqueen_successors(state):
+    """
+    Returns a list of NqueenState objects from generating the inputted state's successors.
+    It will always return n successors unless the state is being expanded is one
+    in which all the queens have been placed and there are no more empty columns
+
+    :param state: The NqueenState whose successors are to be generated
+    :return successors: A list of the state's successors
+    """
 
     # List to contain successors
     successors = []
@@ -163,6 +321,8 @@ def nqueen_successors(state):
 
         # For each row in the board, generate a new successor
         for i in range(len(state.board)):
+            complexTracker.increment_inner()
+
             successor = NqueenState(state)
             successor.set_board(state.board)
             successor.place_queen(i)
@@ -172,30 +332,28 @@ def nqueen_successors(state):
     return successors
 
 
-# Sets the heuristic weight of the given state. Calculated by summing the number of queens threatening the most
-# previously placed queen with the heuristic weight of the state's parent, which amounts to the total pairs of
-# queens threatening each other on the board
 def nqueen_compute_weight(state):
+    """
+    Sets the heuristic weight of the given state. Calculated as the total pairs of
+    queens threatening each other on the board.
+
+    :param state: The NqueenState whose cost is to be set
+    :return score: The determined cost
+    """
     score = 0
-    echo_string = ""
-
-    echo = False
-
-    if echo:
-        print(f'State:\n{state}\nAc:\t\t\tUp:\t\t\tDn:')
 
     for queen_coords in state.queens:
+
+        complexTracker.increment_outer()
+
         temp_queens = state.queens.copy()
         temp_queens.sort(key=lambda queen: queen_coords[1])
         queen_row, queen_col = queen_coords
 
         for other_queen in temp_queens[temp_queens.index(queen_coords):]:
-            other_row, other_col = other_queen
+            complexTracker.increment_inner()
 
-            if echo:
-                print(f'Cur: {queen_coords}\nOth: {other_queen}\nCart. Distances:\n'
-                      f'R(Y): {queen_row - other_row if queen_row > other_row else other_row - queen_row}\n'
-                      f'C(X): {queen_col - other_col}')
+            other_row, other_col = other_queen
 
             if queen_col != other_col:
                 if queen_row - other_row == queen_col - other_col:
@@ -210,25 +368,23 @@ def nqueen_compute_weight(state):
     return score
 
 
-# Takes two state objects as parameters and returns a tuple of two states resulting from a two-point genetic
-# crossover in which the two points are randomly chosen.
 def genetic_crossover(state_0, state_1):
-    # Rotate
+    """
+    Takes two state objects as parameters and returns a tuple of two states resulting from a two-point genetic
+    crossover in which the two points are randomly chosen.
+
+    :param state_0: One of the two NqueenStates about to undergo crossover with each other
+    :param state_1: One of the two NqueenStates about to undergo crossover with each other
+    :return new_state_0, new_state_1: The pair of offspring produced by the crossover
+    """
+
     board_0 = rotate_board(state_0.board.copy(), True)
     board_1 = rotate_board(state_1.board.copy(), True)
 
     random.seed()
 
     cut_point_0 = random.randint(0, min(int(len(board_0)/2), len(state_0.queens), len(state_1.queens)))
-
-    # TODO Make sure exception handler isn't necessary before deleting
-    # Catch ValueError for cases where the board is small enough
     cut_point_1 = random.randint(cut_point_0, min(len(board_0), len(state_0.queens), len(state_1.queens)))
-    # try:
-    #     cut_point_1 = random.randint(cut_point_0, min(len(board_0), len(state_0.queens), len(state_1.queens)))
-    # except:
-    #     cut_point_1 = cut_point_0
-
 
     new_board_0 = board_1[:cut_point_0] + board_0[cut_point_0:cut_point_1] + board_1[cut_point_1:]
     new_board_1 = board_0[:cut_point_0] + board_1[cut_point_0:cut_point_1] + board_0[cut_point_1:]
@@ -252,6 +408,11 @@ def genetic_crossover(state_0, state_1):
 
 
 def nqueen_start(n):
+    """
+    Returns a new NqueenState with a blank board
+    :param n: The specified board size
+    :return state: The new NqueenState
+    """
 
     random.seed()
     state = NqueenState(None)
@@ -262,10 +423,7 @@ def nqueen_start(n):
     return state
 
 
-"""
-
-"""
-def mutate_population(population, pop_best):
+def mutate_population(population):
 
     for mutation_index in range(len(population) - 1):
         random.seed()
@@ -273,9 +431,9 @@ def mutate_population(population, pop_best):
         new_mutated_state = NqueenState()
         new_mutated_state.set_board(population[mutation_index].board)
 
-        # if new_mutated_state.cost - (len(new_mutated_state.board) - len(new_mutated_state.queens)) < pop_best:
-
         for i in range(len(new_mutated_state.board) - 1):
+
+            complexTracker.increment_inner()
 
             # Randomly choose the index of a queen to move to another random space in the same column
             try:
@@ -301,7 +459,7 @@ def mutate_population(population, pop_best):
                 None
 
 
-def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bigPop=0):
+def nqueen_heuristic_search(start, successorFunc, searchType, bigPop=0):
 
     biggest_pop = bigPop
 
@@ -335,15 +493,6 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
                 state.successors = successorFunc(state)
                 expanded_states.add_to_expanded(state)
 
-            if echo:
-                print(f'OUT Iter: {outer_iterations},  INN Iter: {inner_iterations}\nState:\n{state}\nSuccessors:\n')
-                print(f'Inner Ier: {inner_iterations}')
-
-            if echo_v:
-                message = "c: "
-                for i in range((state.cost) * -1):
-                    message += '----'
-
 
             # If the state has successors
             if len(state.successors) > 0:
@@ -369,7 +518,7 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
                         successor_index = random.randint(1, 100)
 
                         for successor in temp_successors:
-                            inner_iterations += 1
+                            complexTracker.increment_inner()
                             upper_bound = temp_probs[temp_successors.index(successor)] * 100
                             if successor_index <= upper_bound:
                                 state = successor
@@ -386,12 +535,11 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
             else:
                 state = state.parent
 
-            outer_iterations += 1
+            complexTracker.increment_outer()
 
     # Perform a genetic search
-    if searchType == "genetic" and checkGoal is not None:
+    if searchType == "genetic":
 
-        time_it = False
         population = [start]
         population_cap = int(len(start.board) / 2) + 1 if len(start.board) > 2 else len(start.board)
 
@@ -434,35 +582,14 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
             if goal is not None:
                 break
 
-            if len(population) > biggest_pop:
-                biggest_pop = len(population)
-                time_it = True
-
-            start_time = 0
-            if time_it:
-                start_time = time.time()
-
             # Sort population in ascending order of cost
             population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
                             reverse=True)
 
-            if time_it:
-                end_time = time.time()
-                runtime = end_time - start_time
-                if runtime > 0.1:
-                    x = 0
-
             # Cull lower weight chromosomes to reduce pop size to its max allowed
             if len(population) > population_cap:
 
-                start_time = time.time()
                 population = population[:population_cap]
-
-                if time_it:
-                    end_time = time.time()
-                    runtime = end_time - start_time
-                    if runtime > 0.0:
-                        x = 0
 
             # Calculate the best weight out of each chromosome in the population
             best_pop_weight = population[0].cost - (len(population[0].board) - len(population[0].queens))
@@ -471,8 +598,8 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
             # Set the base mutation probability to 10%
             mutation_probability = 0.1
 
-            # If mutation timer increment reached and the best weight in the current population is at least 1 greater than the best recorded at the last increment
-            # if mutation_check:
+            # If mutation timer increment reached and the best weight in the current population is greater
+            # than the best recorded at the last increment
             if mutation_timer >= mutation_increment:
                 # Reset the mutation timer
                 mutation_timer = 0
@@ -482,7 +609,6 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
                 best_prob_mod = 0.05
                 biodiv_prob_mod = 0.05
                 wrst_prob_mod = 0.005
-                # wrst_prob_mod = 1.0 / len(population[0].board)
 
                 # Calculate the change in the best and worst fitness among the population compared to those of the
                 # previously checked generation.
@@ -516,18 +642,6 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
                 if mutation_probability < 10:
                     mutation_probability = 10
 
-                # if best_pop_weight - best_rec_weight < 1
-
-                # if echo_v:
-                #     print(f'Prob: {int(mutation_probability)}\tBest Pop.: {best_pop_weight}\tWorst Pop.: {wrst_pop_weight}\nBest Rec.: {best_rec_weight}\tWorst Rec.: {wrst_best_rec_weight}\n')
-                #
-                #     if mutation_probability > 100.0:
-                #         x = 0
-                #     if best_fitness_prob > 0.0:
-                #         x = 0
-                #     if wrst_fitness_prob > 1.0:
-                #         x = 0
-
                 # If current best weight is better than the recorded best
                 if best_pop_weight > best_rec_weight:
                     # Set best recorded weight to new best
@@ -540,52 +654,29 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
             random.seed()
             genetic_operation = float(random.randint(1, 100))
 
-            if genetic_operation == 0.0:
-                x = 0
-
             if genetic_operation < mutation_probability:
-                mutations += 1
-                # Otherwise mutate
-
-                start_time = 0
-                if time_it:
-                    start_time = time.time()
-
-                mutate_population(population, best_pop_weight)
-
-                if time_it:
-                    end_time = time.time()
-                    runtime = end_time - start_time
-                    if runtime > 0.1:
-                        x = 0
+                complexTracker.increment_mutations()
+                mutate_population(population)
 
             else:
-
-                start_time = 0
-                if time_it:
-                    start_time = time.time()
-
                 # Create a copy of the population so that population can be modified without affecting loops
                 temp_population = population.copy()
 
                 # Loop through entire population
                 for chromosome in temp_population:
 
-                    if check_for_weird(chromosome):
-                        x = 0
-
                     # Create copy of the temp population so it can be modified
                     other_chromosomes = temp_population.copy()
 
                     # Remove all occurrences of the current state (chromosome) from the population copy
                     for other_chromosome in temp_population:
-                        inner_iterations += 1
+                        complexTracker.increment_inner()
                         if check_boards_equal(chromosome, other_chromosome):
                             other_chromosomes.remove(other_chromosome)
 
                     # Loop until all chromosomes other than the current one are removed from the other list
                     while len(other_chromosomes) > 0:
-                        inner_iterations += 1
+                        complexTracker.increment_inner()
                         random.seed()
 
                         # Choose an index at random from the other population list
@@ -602,87 +693,78 @@ def nqueen_heuristic_search(start, successorFunc, searchType, checkGoal=None, bi
                         if f'{child_1}' not in [f'{chromosome}' for chromosome in population]:
                             population.append(child_1)
 
-                if time_it:
-                    end_time = time.time()
-                    runtime = end_time - start_time
-                    if runtime > 0.1:
-                        x = 0
-
                 outer_iterations += 1
 
             # Sort population in ascending order of cost
             population.sort(key=lambda chromosome: chromosome.cost - (len(chromosome.board) - len(chromosome.queens)),
                             reverse=True)
 
-            # # Cull lower weight chromosomes to reduce pop size to its max allowed
-            # if len(population) > population_cap:
-            #     population = population[:population_cap]
-
             # Increment mutation timer
             mutation_timer += 1
 
-    # TODO Implement PSO
+    # Perform PSO on the problem
     if searchType == "PSO":
-        best_fitness = float('inf')
+        # Set the best fitness to negative infinity
+        best_fitness = float('-inf')
+        # Initialize goal to None
         goal = None
 
+        # The number of queens on each board
         num_queens = len(start.board)
-        # swarm_size = max(6, int(3.75 * num_queens))
-        swarm_size = 3
+        # Swarm size and max iterations determined by the size of the input (number of queens/columns)
+        swarm_size = max(6, int(1.5 * num_queens))
+        max_iters = num_queens * 125
 
-        max_iters = 1000
-
+        # Initialize a new random swarm
         swarm = initialize_swarm(num_queens, swarm_size)
 
+        # Loop until max iterations reached
         for i in range(max_iters):
+            # Save the particle with the best fitness in the
             best_particle = max(swarm, key=lambda particle: particle.cost)
 
-            if abs(best_particle.cost) < best_fitness:
+            # Update the global best fitness and set the goal to be returned
+            if best_particle.cost > best_fitness:
                 best_fitness = abs(best_particle.cost)
                 goal = best_particle
-                print(f'Best fitness: {best_fitness}')
 
+            # Break if the goal was found
             if best_fitness == 0:
-                print(f'Best fitness: {best_fitness}')
                 break
 
-            mean_pos_board, variance_pos_board = update_macro_state(swarm)
-            swarm = advance_swarm(swarm, mean_pos_board, variance_pos_board)
+            # Update the macroscopic state
+            mean_pos_board = update_macro_state(swarm)
+            # Move the swarm to new positions
+            swarm = advance_swarm(swarm, mean_pos_board, best_fitness)
 
-            outer_iterations += 1
+            complexTracker.increment_outer()
 
-        # print(f'Best:\n{best_particle}\nCost: {best_particle.cost}\nIterations: {outer_iterations}\n')
-
-    if echo:
-        print(f'Iter: {outer_iterations}')
-
+    # Clear the list of expanded states
     expanded_states.clear_expanded()
 
-    return goal, (outer_iterations, inner_iterations, crossovers, mutations), biggest_pop
+    # Return the search results and reset the performance tracker
+    result = (goal,
+              (complexTracker.outer_iterations,
+               complexTracker.inner_iterations,
+               complexTracker.crossovers,
+               complexTracker.mutations),
+              biggest_pop
+              )
+    complexTracker.reset_all_counters()
+    return result
 
-
-"""
-Selects an outcome based on the given list of probs.    
-
-Parameters:
-probs (list of float): A list of probs summing to 1.0.
-
-Returns:
-int: The index of the selected outcome.
-"""
-def select_outcome(probs):
-
-    if sum(probs) == 1.0:
-        cumulative_probabilities = [sum(probs[:i + 1]) for i in range(len(probs))]
-        random_value = random.random()
-
-        for i, cumulative_probability in enumerate(cumulative_probabilities):
-            if random_value < cumulative_probability:
-                return i
-    else:
-        return -1
 
 def initialize_swarm(n, size):
+    """
+    Creates a new swarm of particles with randomized initial states. It generates a random permutation of integers
+    representing the rows in which to place each queen, and then loops through each permutation placing each queen
+    in its new space
+
+    :param n: An int for the number of queens to be placed/number of columns or rows
+    :param size: The number of particles in the swarm
+    :return swarm: A newly initialized list of states where each queen is placed in each column in a random row
+    """
+
     swarm_permutations = [np.random.permutation(n) for _ in range(size)]
     swarm = []
 
@@ -690,6 +772,8 @@ def initialize_swarm(n, size):
         temp_state = nqueen_start(n)
 
         for queen_placement in particle_permutation:
+            complexTracker.increment_inner()
+
             temp_state.successors = nqueen_successors(temp_state)
             temp_state = temp_state.successors[queen_placement]
 
@@ -699,27 +783,54 @@ def initialize_swarm(n, size):
 
     return swarm
 
+
 def update_macro_state(swarm):
+    """
+    Updates and returns the macroscopic state of the swarm, which is represented by a 2D list of floats the same size
+    as a state's board in which each float represents the fraction of states in the swarm that have a queen placed in
+    that same cell.
+
+    :param swarm: The list of states/particles that make up the swarm
+    :return mean_board: A 2D list of floats
+    """
+
     n = len(swarm[0].board)
 
     mean_board = [[0 for _ in range(n)] for _ in range(n)]
-    variance_board = [[0 for _ in range(n)] for _ in range(n)]
 
     for i in range(n):
         for j in range(n):
+            complexTracker.increment_inner()
+
             queen_positions = [1 if (i, j) in particle.queens else 0 for particle in swarm]
             mean_value = stats.mean(queen_positions)
-            variance_value = stats.variance(queen_positions) if len(queen_positions) > 1 else 0
             mean_board[i][j] = mean_value
-            variance_board[i][j] = variance_value
 
-    return mean_board, variance_board
+    return mean_board
 
-def advance_swarm(swarm, mean_board, variance_board):
+
+def advance_swarm(swarm, mean_board, best_fit):
+    """
+    This function handles the movement of the swarm by modifying the boards of each particle in a manner determined
+    probabilistically. The position of a particle is represented by the cost of its state and movement is
+    represented by changes in the placements of its queens. The component of the velocity corresponding with the board
+    space that is currently being observed is used as the probability that the queen in that column will be moved to
+    that space.
+
+    :param swarm: A list of nqueen states representing the swarm of particles
+    :param mean_board: A 2D list of floats with the same dimensions as the board with each float being the fraction
+        of particles with a queen placed in the corresponding space on the board
+    :param best_fit: The best fitness out of any particle so far
+    :return new_swarm: A list of nqueen states representing the newly repositioned swarm
+    """
+
     new_swarm = []
 
     for index, particle in enumerate(swarm):
         n = len(particle.board)
+
+        # Inertia and speeds/weights associated with each part of the velocity
+        inertia, cognitive_wgt, social_wgt = 0.5, 0.9, 0.9
 
         new_particle = nqueen_start(n)
         new_particle.set_board(particle.board)
@@ -729,13 +840,17 @@ def advance_swarm(swarm, mean_board, variance_board):
 
         for i in range(n):
             for j in range(n):
+                # Update performance metrics
+                complexTracker.increment_inner()
+
+                # Calculate terms of velocity equation
+                cognitive = cognitive_wgt * random.random() * (particle.personal_best - particle.cost)
+                social = social_wgt * random.random() * mean_board[i][j] * (best_fit - particle.cost)
 
                 # Update velocity
-                inertia = 0.5
-                cognitive = 0.8 * ((select_outcome([0.1, 0.9]) * 0.1) + 0.4) * (1 if particle.board[i][j] == 'Q' else 0)
-                social = 0.9 * select_outcome([0.1, 0.9]) * mean_board[i][j]
                 temp_velocity[i][j] = inertia * new_particle.velocity[i][j] + cognitive + social
 
+                # Determine whether to reposition the queen in the current column based on probability
                 if random.random() < temp_velocity[i][j]:
                     new_particle.remove_queen(j)
                     new_particle.place_queen(i, j)
@@ -745,25 +860,28 @@ def advance_swarm(swarm, mean_board, variance_board):
         new_swarm[index].set_velocity(temp_velocity)
         new_swarm[index].cost = nqueen_compute_weight(new_swarm[index])
 
-
     return new_swarm
 
-echo = False
-# echo = True
+
+# echo = False
+echo = True
 # echo_v = False
 echo_v = True
-result_echo = False
-# result_echo = True
+# result_echo = False
+result_echo = True
+
+complexTracker.increment_outer()
 
 biggest_pop = 0
 
 overall_results = []
-results = []
-results_0 = []
+performance_results = []
+performance_results_0 = []
+solution_fitnesses = []
 runtimes = []
 
-tests = 10
-n = 10
+tests = 150
+n = 8
 
 # test_types = ["hill-climbing", "genetic", "PSO"]
 # test_types = ["genetic", "PSO"]
@@ -779,14 +897,12 @@ for test_type in test_types:
         start_time = time.time()
 
         start_state = nqueen_start(n)
-        search_result = nqueen_heuristic_search(start_state, nqueen_successors, test_type, check_genetic, biggest_pop)
+        search_result = nqueen_heuristic_search(start_state, nqueen_successors, test_type, biggest_pop)
 
         end_time = time.time()
-        runtime = (end_time - start_time) * 1000  # Convert to milliseconds
+        runtime = (end_time - start_time) * 1000
         runtimes.append(runtime)
 
-        # inn_iter_count = float(search_result[1][2]) if test_type == "genetic" else float(search_result[1][0])
-        # out_iter_count = float(search_result[1][3]) if test_type == "genetic" else float(search_result[1][1])
         inn_iter_count = float(search_result[1][0])
         out_iter_count = float(search_result[1][1])
         mutations = search_result[1][3]
@@ -797,7 +913,7 @@ for test_type in test_types:
         if echo_v and goal_state is not None:
             print(
                 f'Test {i + 1}/{tests} (n = {n}) Goal:\n{goal_state}'
-                f'cost: {goal_state.cost}\n{inn_iter_count} iterations/generations\n'
+                f'cost: {goal_state.cost}\n{inn_iter_count} iterations\n'
                 f'Runtime: {runtime:0.2f} ms\n')
 
             if test_type == "genetic":
@@ -809,36 +925,40 @@ for test_type in test_types:
             print(f'Test {i + 1} finished\nRuntime: {runtime:0.2f} ms\n')
 
         if test_type == "genetic":
-            results.append(crossovers)
-            results_0.append(mutations)
+            performance_results.append(crossovers)
+            performance_results_0.append(mutations)
         else:
-            results.append(inn_iter_count)
-            results_0.append(out_iter_count)
+            performance_results.append(inn_iter_count)
+            performance_results_0.append(out_iter_count)
+
+        solution_fitnesses.append(goal_state.cost)
 
     if result_echo:
-        avg_perf = stats.mean(results)
-        std_dev_perf = stats.stdev(results)
+        # Calculate the avg and standard deviation of innermost loop iterations that occurred during the searches
+        avg_perf = stats.mean(performance_results)
+        std_dev_perf = stats.stdev(performance_results)
 
-        avg_perf_0 = stats.mean(results_0)
-        std_dev_perf_0 = stats.stdev(results_0)
+        avg_perf_0 = stats.mean(performance_results_0)
+        std_dev_perf_0 = stats.stdev(performance_results_0)
 
-        # Calculate and print the avg_perf and standard deviation of runtimes
+        # Calculate the avg and standard deviation of runtimes
         avg_runtime = stats.mean(runtimes)
         std_dev_runtime = stats.stdev(runtimes)
 
-        # if echo or echo_v:
-        # print(
-        #     f'Test Type: {test_type}\n'
-        #     f'n = {n}\n# of tests: {tests}\n'
-        #     f'Iteration Counts: {results}\n'
-        #     f'Average: {avg_perf}\n'
-        #     f'Std. Deviation: {std_dev_perf}\n'
-        #     f'Average runtime: {avg_runtime:.2f} ms\n'
-        #     f'Standard deviation of runtimes: {std_dev_runtime:.2f} ms\n'
-        # )
+        # Calculate the average and standard deviation of fitness of the solutions produced by each test
+        avg_solution_fitness = stats.mean(solution_fitnesses)
+        std_dev_solution_fitness = stats.stdev(solution_fitnesses)
 
-        overall_results.append(((avg_perf, std_dev_perf), (avg_perf_0, std_dev_perf_0), (avg_runtime, std_dev_runtime)))
-    results.clear()
+        overall_results.append((
+            (avg_perf, std_dev_perf),
+            (avg_perf_0, std_dev_perf_0),
+            (avg_runtime, std_dev_runtime),
+            (avg_solution_fitness, std_dev_solution_fitness)
+        ))
+
+    performance_results.clear()
+    performance_results_0.clear()
+    solution_fitnesses.clear()
     runtimes.clear()
 
 print()
@@ -853,7 +973,9 @@ if result_echo:
                   f' -\tAvg. Mutations: {overall_results[i][1][0]}\n'
                   f' -\tStd. Dev. Mutations: {overall_results[i][1][1]}\n\n'
                   f' -\tAverage runtime: {overall_results[i][2][0]:.2f} ms\n'
-                  f' -\tStd. Dev. Runtimes: {overall_results[i][2][1]:.2f} ms\n'
+                  f' -\tStd. Dev. Runtimes: {overall_results[i][2][1]:.2f} ms\n\n'
+                  f' -\tAvg. Solution Fitness: {overall_results[i][3][0]:.2f} (Best possible fitness: 0)\n'
+                  f' -\tStd. Dev. Fitness: {overall_results[i][3][1]:.2f}\n'
                   )
         else:
             print(f'Test: {test_type} (n = {n}):\n'
@@ -861,7 +983,9 @@ if result_echo:
                   f' -\tAvg. Performance: {overall_results[i][0][0]} iterations\n'
                   f' -\tStd. Dev. Performance: {overall_results[i][0][1]}\n\n'
                   f' -\tAverage runtime: {overall_results[i][2][0]:.2f} ms\n'
-                  f' -\tStd. Dev. Runtimes: {overall_results[i][2][1]:.2f} ms\n'
+                  f' -\tStd. Dev. Runtimes: {overall_results[i][2][1]:.2f} ms\n\n'
+                  f' -\tAvg. Solution Fitness: {overall_results[i][3][0]:.2f} (Best possible fitness: 0)\n'
+                  f' -\tStd. Dev. Fitness: {overall_results[i][3][1]:.2f}\n'
                   )
 
 # probabilities = [0.5, 0.3, 0.1, 0.1]
